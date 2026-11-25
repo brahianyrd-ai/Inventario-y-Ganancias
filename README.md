@@ -12,3 +12,7 @@ La clave `sb_publishable_...` en `index.html` es pública por diseño. Los datos
 ## Pasar tus datos antiguos
 
 En la versión anterior (archivo local) usa **Descargar Respaldo (.json)**. Luego, ya con sesión iniciada aquí, usa **Restaurar Respaldo (.json)**.
+
+## Enlace
+
+https://brahianyrd-ai.github.io/Inventario-y-Ganancias/
