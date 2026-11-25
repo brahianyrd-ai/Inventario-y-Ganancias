@@ -1,0 +1,4069 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventario y Ganancias</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <style>
+    /* Estilos base manteniendo la estética limpia y clara */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f0f0f5;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+
+    /* Navegación principal por pestañas */
+    .main-nav {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .main-nav-btn {
+      padding: 11px 22px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+      color: #374151;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .main-nav-btn:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+
+    .main-nav-btn.active {
+      background: #4CAF50;
+      color: white;
+      border-color: #4CAF50;
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.28);
+    }
+
+    .nav-pill {
+      background: rgba(0, 0, 0, 0.1);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    .main-nav-btn.active .nav-pill {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .view-section {
+      display: none;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    /* Banner de notificación temporal (Toast) */
+    .toast-banner {
+      display: none;
+      margin-bottom: 16px;
+      padding: 11px 16px;
+      border-radius: 8px;
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      color: #1b5e20;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .toast-banner.visible {
+      display: block;
+    }
+
+    .container {
+      max-width: 1120px;
+      width: 100%;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Tarjetas de resumen superior (Dashboard) */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 860px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .summary-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .summary-card.clickable-card {
+      cursor: pointer;
+    }
+
+    .summary-card.clickable-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .summary-card .card-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .summary-card .card-value {
+      font-size: 21px;
+      font-weight: bold;
+      color: #222;
+    }
+
+    .summary-card .card-sub {
+      font-size: 11px;
+      color: #777;
+      margin-top: 4px;
+    }
+
+    .summary-card.profit-card {
+      border-color: #c8e6c9;
+      background: #f1f8e9;
+    }
+
+    .summary-card.profit-card.negative {
+      border-color: #ffcdd2;
+      background: #ffebee;
+    }
+
+    .summary-card.low-stock-card {
+      border-color: #ffe0b2;
+      background: #fff8e1;
+    }
+
+    .summary-card.low-stock-card.has-alerts {
+      border-color: #ffcdd2;
+      background: #ffebee;
+    }
+
+    .profit-positive {
+      color: #2e7d32 !important;
+    }
+
+    .profit-negative {
+      color: #c62828 !important;
+    }
+
+    .alert-count-warning {
+      color: #e65100 !important;
+    }
+
+    .alert-count-danger {
+      color: #c62828 !important;
+    }
+
+    /* Barra de herramientas: Buscador + Filtros rápidos de stock */
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    #search {
+      flex: 1;
+      min-width: 240px;
+      margin-bottom: 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-tab-btn {
+      padding: 9px 14px;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      background: #f6f8fa;
+      color: #333;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .filter-tab-btn:hover {
+      background: #eaeef2;
+    }
+
+    .filter-tab-btn.active {
+      background: #4CAF50;
+      color: white;
+      border-color: #4CAF50;
+    }
+
+    .filter-tab-btn.low-filter.active {
+      background: #d32f2f;
+      color: white;
+      border-color: #d32f2f;
+    }
+
+    .filter-badge {
+      background: rgba(0, 0, 0, 0.12);
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .filter-tab-btn.active .filter-badge {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    #search:focus,
+    form input:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+    }
+
+    /* Mensaje de validación del formulario */
+    .form-feedback {
+      display: none;
+      margin-bottom: 10px;
+      padding: 9px 12px;
+      border-radius: 6px;
+      background-color: #ffebee;
+      border: 1px solid #ef9a9a;
+      color: #b71c1c;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .form-feedback.visible {
+      display: block;
+    }
+
+    /* Formulario de productos en cuadrícula responsiva (Código, Nombre, Cantidad, Costo, Venta) */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 2fr 0.9fr 1.1fr 1.1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 860px) {
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    form input {
+      padding: 10px 12px;
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .form-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-buttons button {
+      padding: 11px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+    }
+
+    #submitBtn {
+      flex: 1;
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    #submitBtn:hover {
+      background-color: #45a049;
+    }
+
+    .btn-cancel {
+      background-color: #9e9e9e;
+      color: white;
+      display: none;
+      min-width: 130px;
+    }
+
+    .btn-cancel:hover {
+      background-color: #7e7e7e;
+    }
+
+    /* Tabla responsiva */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 18px;
+      border-radius: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th,
+    td {
+      border: 1px solid #e0e0e0;
+      text-align: center;
+      padding: 10px 8px;
+      font-size: 14px;
+    }
+
+    th {
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    tr:hover {
+      background-color: #f3f7f3;
+    }
+
+    tr.row-low-stock {
+      background-color: #fffaf5;
+    }
+
+    tr.row-out-stock {
+      background-color: #fff5f5;
+    }
+
+    td.product-name-cell {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    /* Etiqueta visual para el código SKU */
+    .code-tag {
+      display: inline-block;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+      font-size: 12.5px;
+      background: #eef2f6;
+      color: #334155;
+      padding: 3px 7px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+    }
+
+    /* Controles rápidos de cantidad (+1 / -1) */
+    .qty-control {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .qty-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #1e293b;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      padding: 0;
+    }
+
+    .qty-btn:hover:not(:disabled) {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+
+    .qty-btn.plus:hover:not(:disabled) {
+      background: #e8f5e9;
+      border-color: #66bb6a;
+      color: #2e7d32;
+    }
+
+    .qty-btn.minus:hover:not(:disabled) {
+      background: #ffebee;
+      border-color: #ef5350;
+      color: #c62828;
+    }
+
+    .qty-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .qty-value {
+      min-width: 26px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    /* Insignias de estado de inventario */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .status-available {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+    }
+
+    .status-low {
+      background-color: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffe0b2;
+    }
+
+    .status-out {
+      background-color: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+
+    th,
+    td {
+      border: 1px solid #e0e0e0;
+      text-align: center;
+      padding: 10px 8px;
+      font-size: 14px;
+    }
+
+    th {
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    tr:hover {
+      background-color: #f3f7f3;
+    }
+
+    td.product-name-cell {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    /* Insignia de porcentaje de margen */
+    .margin-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      border-radius: 10px;
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .margin-badge.negative {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    /* Alerta de bajo stock (< 5 unidades) */
+    .alert-low-stock {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+
+    /* Botones de acción en tabla */
+    .btn {
+      cursor: pointer;
+      padding: 6px 11px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      margin: 2px;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+    }
+
+    .btn-edit {
+      background-color: #2196F3;
+      color: white;
+    }
+
+    .btn-delete {
+      background-color: #f44336;
+      color: white;
+    }
+
+    .btn-sell {
+      background-color: #2e7d32;
+      color: white;
+      font-weight: bold;
+    }
+
+    .btn-sell:disabled {
+      background-color: #bdbdbd;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    /* Barra superior y controles del apartado principal Ventas */
+    .sales-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+
+    .sales-filters {
+      display: flex;
+      flex-wrap: wrap;
+      flex: 1;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .sales-search-input {
+      flex: 1;
+      min-width: 220px;
+      padding: 9px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 14px;
+      background: white;
+    }
+
+    .sales-search-input:focus {
+      outline: none;
+      border-color: #2e7d32;
+      box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.14);
+    }
+
+    .btn-add-sale {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      background: #2e7d32;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .btn-add-sale:hover {
+      background: #256628;
+      transform: translateY(-1px);
+    }
+
+    /* Barra superior de Exportación y Respaldo */
+    .backup-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 18px;
+    }
+
+    .backup-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .backup-group-label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-right: 2px;
+    }
+
+    .btn-tool {
+      padding: 7px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #1e293b;
+      font-size: 12.5px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s ease;
+    }
+
+    .btn-tool:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+
+    .btn-tool.csv-inv {
+      border-color: #a5d6a7;
+      color: #1b5e20;
+      background: #f1f8e9;
+    }
+
+    .btn-tool.csv-inv:hover {
+      background: #e8f5e9;
+      border-color: #66bb6a;
+    }
+
+    .btn-tool.csv-sales {
+      border-color: #90caf9;
+      color: #0d47a1;
+      background: #e3f2fd;
+    }
+
+    .btn-tool.csv-sales:hover {
+      background: #bbdefb;
+      border-color: #42a5f5;
+    }
+
+    .btn-tool.json-save {
+      border-color: #ce93d8;
+      color: #4a148c;
+      background: #f3e5f5;
+    }
+
+    .btn-tool.json-save:hover {
+      background: #e1bee7;
+      border-color: #ab47bc;
+    }
+
+    .btn-tool.json-restore {
+      border-color: #ffcc80;
+      color: #e65100;
+      background: #fff3e0;
+    }
+
+    .btn-tool.json-restore:hover {
+      background: #ffe0b2;
+      border-color: #ffa726;
+    }
+
+    /* Estilos específicos de Estadísticas por Mes */
+    .stats-controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .stats-filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stats-filter-group label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .stats-select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 14px;
+      font-weight: bold;
+      color: #1e293b;
+      cursor: pointer;
+    }
+
+    .stats-select:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    /* Gráfico comparativo de barras CSS/SVG */
+    .chart-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 22px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    }
+
+    .chart-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .chart-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #1e293b;
+      margin: 0;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      font-size: 12.5px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .legend-dot.revenue {
+      background: #2196F3;
+    }
+
+    .legend-dot.profit {
+      background: #4CAF50;
+    }
+
+    .bar-chart-scroll {
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .bar-chart-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(54px, 1fr));
+      gap: 8px;
+      align-items: end;
+      height: 220px;
+      padding: 24px 8px 0 8px;
+      border-bottom: 2px solid #cbd5e1;
+      background-image: linear-gradient(to top, #f1f5f9 1px, transparent 1px);
+      background-size: 100% 44px;
+    }
+
+    .month-bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+      cursor: pointer;
+      position: relative;
+      padding: 0 2px;
+      border-radius: 6px 6px 0 0;
+      transition: background-color 0.15s;
+    }
+
+    .month-bar-col:hover {
+      background-color: rgba(33, 150, 243, 0.06);
+    }
+
+    .month-bar-col.selected-month {
+      background-color: rgba(76, 175, 80, 0.1);
+    }
+
+    .bars-pair {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 4px;
+      width: 100%;
+      height: 175px;
+    }
+
+    .bar-stick {
+      width: 15px;
+      min-height: 2px;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.35s ease, opacity 0.2s;
+    }
+
+    .bar-stick.revenue {
+      background: linear-gradient(180deg, #42a5f5, #1e88e5);
+    }
+
+    .bar-stick.profit {
+      background: linear-gradient(180deg, #66bb6a, #2e7d32);
+    }
+
+    .bar-stick.zero {
+      background: #e2e8f0;
+      height: 3px !important;
+    }
+
+    .month-label {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .month-bar-col.selected-month .month-label {
+      color: #2e7d32;
+      text-decoration: underline;
+    }
+
+    .chart-tooltip-box {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      font-size: 13px;
+      color: #334155;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* Tabla mensual interactiva */
+    tr.clickable-month-row {
+      cursor: pointer;
+    }
+
+    tr.clickable-month-row.selected-month-row {
+      background-color: #e8f5e9 !important;
+      font-weight: bold;
+    }
+
+    /* Panel de detalle de ventas del mes seleccionado */
+    .month-detail-panel {
+      margin-top: 22px;
+      border: 1px solid #c8e6c9;
+      background: #f9fdf9;
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .month-detail-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .month-detail-title {
+      margin: 0;
+      font-size: 16px;
+      color: #1b5e20;
+    }
+
+    /* Tabla dedicada: Historial de Cuándo se Vendió */
+    .when-sold-panel {
+      margin-top: 24px;
+      border: 1px solid #bbdefb;
+      background: #f8fbff;
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .when-sold-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .when-sold-title {
+      margin: 0;
+      font-size: 16px;
+      color: #0d47a1;
+    }
+
+    .when-sold-note {
+      font-size: 12px;
+      color: #1565c0;
+      background: #e3f2fd;
+      border: 1px solid #90caf9;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .when-sold-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .when-sold-search {
+      flex: 1;
+      min-width: 220px;
+      padding: 8px 11px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 13.5px;
+      background: white;
+    }
+
+    /* Formulario dentro del modal de venta */
+    .sell-modal-box {
+      max-width: 430px;
+      text-align: left;
+    }
+
+    .sell-modal-box h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #1b5e20;
+      text-align: center;
+    }
+
+    .sell-product-summary {
+      background: #f1f8e9;
+      border: 1px solid #c8e6c9;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    .sell-field {
+      margin-bottom: 12px;
+    }
+
+    .sell-field label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #374151;
+    }
+
+    .sell-field input {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .sell-preview-totals {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      font-size: 13.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sell-error-msg {
+      color: #c62828;
+      font-size: 12.5px;
+      font-weight: bold;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .sell-error-msg.visible {
+      display: block;
+    }
+
+    /* Barra inferior discreta para reiniciar datos */
+    .footer-tools {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-reset-data {
+      background: transparent;
+      border: 1px solid #d0d0d5;
+      color: #666;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-reset-data:hover {
+      background: #f5f5f5;
+      color: #333;
+      border-color: #bbb;
+    }
+
+    /* Modal personalizado (reemplazo seguro de confirm()) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-box {
+      background: white;
+      padding: 22px;
+      border-radius: 8px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-actions {
+      margin-top: 18px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* Pantalla de acceso (login) y barra de usuario */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: #f0f0f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 16px;
+    }
+
+    .auth-overlay.hidden {
+      display: none;
+    }
+
+    .auth-box {
+      background: white;
+      width: 100%;
+      max-width: 380px;
+      padding: 28px 24px;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .auth-box h2 {
+      margin: 0 0 4px;
+      text-align: center;
+    }
+
+    .auth-sub {
+      margin: 0 0 18px;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .auth-box input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .auth-box input:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+    }
+
+    .auth-primary {
+      width: 100%;
+      padding: 11px;
+      border: none;
+      border-radius: 6px;
+      background: #4CAF50;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .auth-primary:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .auth-switch {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      background: none;
+      border: none;
+      color: #2e7d32;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .auth-msg {
+      display: none;
+      margin-bottom: 10px;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .auth-msg.visible {
+      display: block;
+    }
+
+    .auth-msg.error {
+      background: #ffebee;
+      border: 1px solid #ef9a9a;
+      color: #b71c1c;
+    }
+
+    .auth-msg.info {
+      background: #e8f5e9;
+      border: 1px solid #a5d6a7;
+      color: #1b5e20;
+    }
+
+    .user-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12.5px;
+      color: #64748b;
+    }
+
+    .sync-status {
+      font-weight: bold;
+    }
+
+    .sync-status.error {
+      color: #c62828;
+    }
+
+    .empty-state {
+      color: #777;
+      font-style: italic;
+      padding: 18px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Pantalla de acceso -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-box">
+      <h2>Inventario y Ganancias</h2>
+      <p class="auth-sub" id="authSubtitle">Inicia sesión para ver tus datos</p>
+      <div id="authMsg" class="auth-msg" role="alert"></div>
+      <form id="authForm">
+        <input type="email" id="authEmail" placeholder="Correo electrónico" autocomplete="email" required />
+        <input type="password" id="authPassword" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password" minlength="6" required />
+        <button type="submit" id="authSubmitBtn" class="auth-primary">Iniciar sesión</button>
+      </form>
+      <button type="button" id="authSwitchBtn" class="auth-switch">¿No tienes cuenta? Crear una</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="user-bar" id="userBar" style="display:none;">
+      <span class="sync-status" id="syncStatus">Conectando…</span>
+      <span id="userEmailLabel"></span>
+      <button type="button" id="logoutBtn" class="btn-reset-data">Cerrar sesión</button>
+    </div>
+    <h1>Inventario y Ganancias</h1>
+
+    <!-- Navegación principal entre Inventario, Ventas y Estadísticas por Mes -->
+    <div class="main-nav" role="tablist" aria-label="Secciones principales">
+      <button type="button" id="navInventoryBtn" class="main-nav-btn active" role="tab" aria-selected="true">
+        Inventario <span class="nav-pill" id="navStockCount">0</span>
+      </button>
+      <button type="button" id="navSalesBtn" class="main-nav-btn" role="tab" aria-selected="false">
+        Ventas <span class="nav-pill" id="navSalesCount">0</span>
+      </button>
+      <button type="button" id="navStatsBtn" class="main-nav-btn" role="tab" aria-selected="false">
+        Estadísticas por Mes <span class="nav-pill" id="navSalesProfitBadge">RD$0.00</span>
+      </button>
+    </div>
+
+    <!-- Módulo de Exportación a Excel (CSV) y Respaldo Completo (JSON) -->
+    <div class="backup-toolbar" aria-label="Herramientas de exportación y respaldo">
+      <div class="backup-group">
+        <span class="backup-group-label">Excel / CSV:</span>
+        <button type="button" id="exportInvCsvBtn" class="btn-tool csv-inv" title="Descargar inventario en formato CSV compatible con Excel">
+          Exportar Inventario (CSV)
+        </button>
+        <button type="button" id="exportSalesCsvBtn" class="btn-tool csv-sales" title="Descargar historial de ventas en formato CSV compatible con Excel">
+          Exportar Ventas (CSV)
+        </button>
+      </div>
+      <div class="backup-group">
+        <span class="backup-group-label">Respaldo:</span>
+        <button type="button" id="exportJsonBtn" class="btn-tool json-save" title="Guardar copia de seguridad completa en archivo JSON">
+          Descargar Respaldo (.json)
+        </button>
+        <button type="button" id="importJsonBtn" class="btn-tool json-restore" title="Cargar copia de seguridad desde un archivo JSON">
+          Restaurar Respaldo (.json)
+        </button>
+        <input type="file" id="importJsonFileInput" accept=".json,application/json" style="display: none;" />
+      </div>
+    </div>
+
+    <!-- Notificación visual temporal -->
+    <div id="toastBanner" class="toast-banner" role="status"></div>
+
+    <!-- ==================== SECCIÓN 1: INVENTARIO Y STOCK ==================== -->
+    <section id="inventorySection" class="view-section active">
+      <!-- Panel de resumen financiero y alertas del inventario -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-label">Inversión Total (Costo)</div>
+          <div class="card-value" id="totalInvestment">RD$0.00</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">Venta Total Estimada</div>
+          <div class="card-value" id="totalEstimatedSale">RD$0.00</div>
+        </div>
+        <div class="summary-card profit-card" id="profitSummaryCard">
+          <div class="card-label">Ganancia en Inventario</div>
+          <div class="card-value profit-positive" id="totalEstimatedProfit">RD$0.00</div>
+        </div>
+        <div
+          class="summary-card low-stock-card clickable-card"
+          id="lowStockSummaryCard"
+          title="Haz clic para filtrar los productos faltantes o agotados"
+        >
+          <div class="card-label">Productos Faltantes</div>
+          <div class="card-value alert-count-warning" id="lowStockCount">0</div>
+          <div class="card-sub" id="lowStockDetail">Menos de 5 unidades</div>
+        </div>
+      </div>
+
+      <!-- Barra de búsqueda por código o nombre + pestañas de filtro rápido -->
+      <div class="toolbar-row">
+        <input
+          type="text"
+          id="search"
+          placeholder="Buscar por código (ej. COD-001) o nombre del producto..."
+          aria-label="Buscar producto por código o nombre"
+        />
+        <div class="filter-tabs" role="group" aria-label="Filtrar por estado de stock">
+          <button type="button" id="filterAllBtn" class="filter-tab-btn active">
+            Todos los productos <span class="filter-badge" id="allCountBadge">0</span>
+          </button>
+          <button type="button" id="filterLowBtn" class="filter-tab-btn low-filter">
+            Ver solo faltantes (&lt; 5) <span class="filter-badge" id="lowCountBadge">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Aviso de validación (ej. código duplicado) -->
+      <div id="formFeedback" class="form-feedback" role="alert"></div>
+
+      <!-- Formulario para agregar o editar productos con código, costos y precios -->
+      <form id="productForm">
+        <input type="hidden" id="productId" />
+        <div class="form-grid">
+          <input
+            type="text"
+            id="productCode"
+            placeholder="Código / SKU (ej. COD-001)"
+            required
+          />
+          <input
+            type="text"
+            id="productName"
+            placeholder="Nombre del producto"
+            required
+          />
+          <input
+            type="number"
+            id="productQuantity"
+            placeholder="Cantidad"
+            min="0"
+            step="1"
+            required
+          />
+          <input
+            type="number"
+            id="productCost"
+            placeholder="Precio compra (Costo)"
+            min="0"
+            step="0.01"
+            required
+          />
+          <input
+            type="number"
+            id="productSale"
+            placeholder="Precio de venta"
+            min="0"
+            step="0.01"
+            required
+          />
+        </div>
+        <div class="form-buttons">
+          <button type="submit" id="submitBtn">Guardar producto</button>
+          <button type="button" id="cancelEditBtn" class="btn-cancel">Cancelar</button>
+        </div>
+      </form>
+
+      <!-- Tabla de inventario y rentabilidad -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Estado</th>
+              <th>Cantidad</th>
+              <th>Costo</th>
+              <th>Venta</th>
+              <th>Ganancia / Ud.</th>
+              <th>Ganancia Total</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="productTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Herramienta discreta para restaurar datos -->
+      <div class="footer-tools">
+        <button type="button" id="resetDataBtn" class="btn-reset-data">
+          Restaurar inventario de ejemplo
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== SECCIÓN 1B: APARTADO PRINCIPAL DE VENTAS ==================== -->
+    <section id="salesSection" class="view-section">
+      <!-- Barra superior de acciones rápidas y filtros -->
+      <div class="sales-toolbar">
+        <div class="sales-filters">
+          <input
+            type="text"
+            id="salesSearchInput"
+            class="sales-search-input"
+            placeholder="Buscar venta por producto, código o fecha..."
+            aria-label="Buscar en el listado de ventas"
+          />
+          <label for="salesMonthFilterSelect" style="font-size:13px; font-weight:bold; color:#475569;">
+            Mes:
+          </label>
+          <select id="salesMonthFilterSelect" class="stats-select" aria-label="Filtrar ventas por mes">
+            <option value="all">Todos los meses</option>
+            <option value="01">Enero</option>
+            <option value="02">Febrero</option>
+            <option value="03">Marzo</option>
+            <option value="04">Abril</option>
+            <option value="05">Mayo</option>
+            <option value="06">Junio</option>
+            <option value="07">Julio</option>
+            <option value="08">Agosto</option>
+            <option value="09">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </div>
+
+        <button type="button" id="openQuickSaleBtn" class="btn-add-sale">
+          + Registrar Venta
+        </button>
+      </div>
+
+      <!-- Tarjetas resumen del apartado Ventas -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-label">Total de Ventas</div>
+          <div class="card-value" id="salesTabTotalAmount">RD$0.00</div>
+          <div class="card-sub" id="salesTabFilteredSub">Listado actual</div>
+        </div>
+        <div class="summary-card profit-card" id="salesTabProfitCard">
+          <div class="card-label">Ganancia de Estas Ventas</div>
+          <div class="card-value profit-positive" id="salesTabTotalProfit">RD$0.00</div>
+          <div class="card-sub" id="salesTabFloorSub">Ganancia protegida: RD$0.00</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">Unidades Vendidas</div>
+          <div class="card-value" id="salesTabTotalUnits">0</div>
+          <div class="card-sub">Artículos en la selección</div>
+        </div>
+        <div class="summary-card" style="border-color:#bbdefb; background:#f0f7ff;">
+          <div class="card-label">Cantidad de Transacciones</div>
+          <div class="card-value" id="salesTabTxCount" style="color:#1565c0;">0</div>
+          <div class="card-sub">Ventas registradas</div>
+        </div>
+      </div>
+
+      <!-- Tabla principal de Ventas -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha y Hora</th>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Precio Unit. Venta</th>
+              <th>Total Venta</th>
+              <th>Ganancia Neta</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="salesMainTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== SECCIÓN 2: ESTADÍSTICAS POR MES ==================== -->
+    <section id="statsSection" class="view-section">
+      <!-- Controles de filtro por Año y Mes -->
+      <div class="stats-controls-bar">
+        <div class="stats-filter-group">
+          <label for="statsYearSelect">Año:</label>
+          <select id="statsYearSelect" class="stats-select"></select>
+
+          <label for="statsMonthSelect">Mes:</label>
+          <select id="statsMonthSelect" class="stats-select">
+            <option value="all">Todos los meses (Resumen Anual)</option>
+            <option value="01">Enero</option>
+            <option value="02">Febrero</option>
+            <option value="03">Marzo</option>
+            <option value="04">Abril</option>
+            <option value="05">Mayo</option>
+            <option value="06">Junio</option>
+            <option value="07">Julio</option>
+            <option value="08">Agosto</option>
+            <option value="09">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+        </div>
+
+        <div class="stats-filter-group">
+          <button type="button" id="resetSalesBtn" class="btn-reset-data">
+            Restaurar ventas de ejemplo
+          </button>
+          <button type="button" id="clearSalesBtn" class="btn-reset-data" style="color:#c62828; border-color:#ffcdd2;">
+            Vaciar historial de ventas
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas KPI del período seleccionado -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-label" id="kpiSalesLabel">Total Vendido</div>
+          <div class="card-value" id="kpiTotalRevenue">RD$0.00</div>
+          <div class="card-sub" id="kpiTransactionsSub">0 ventas registradas</div>
+        </div>
+        <div class="summary-card profit-card" id="kpiProfitCard">
+          <div class="card-label" id="kpiProfitLabel">Ganancia Neta Realizada</div>
+          <div class="card-value profit-positive" id="kpiTotalNetProfit">RD$0.00</div>
+          <div class="card-sub" id="kpiMarginSub">Margen promedio: 0%</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">Unidades Vendidas</div>
+          <div class="card-value" id="kpiUnitsSold">0</div>
+          <div class="card-sub">Artículos despachados</div>
+        </div>
+        <div class="summary-card" style="border-color:#bbdefb; background:#f0f7ff;">
+          <div class="card-label">Producto Más Vendido</div>
+          <div class="card-value" id="kpiTopProduct" style="font-size:16px; color:#1565c0;">—</div>
+          <div class="card-sub" id="kpiTopProductSub">Sin ventas en el período</div>
+        </div>
+      </div>
+
+      <!-- Gráfico comparativo de barras Enero - Diciembre -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3 class="chart-title" id="chartHeading">Rendimiento Mensual: Ingresos vs. Ganancia Neta</h3>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot revenue"></span> Ingresos por Ventas</span>
+            <span class="legend-item"><span class="legend-dot profit"></span> Ganancia Neta</span>
+          </div>
+        </div>
+        <div class="bar-chart-scroll">
+          <div class="bar-chart-grid" id="monthlyBarChart"></div>
+        </div>
+        <div class="chart-tooltip-box" id="chartInfoBar">
+          <span>Haz clic sobre cualquier barra o fila de mes para ver el detalle de sus ventas.</span>
+        </div>
+      </div>
+
+      <!-- Tabla de resumen mensual (Enero a Diciembre) -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th>Cant. Ventas</th>
+              <th>Unidades Vendidas</th>
+              <th>Costo Vendido</th>
+              <th>Ingresos Totales</th>
+              <th>Ganancia Neta</th>
+              <th>Margen %</th>
+            </tr>
+          </thead>
+          <tbody id="monthlySummaryBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Panel de detalle de transacciones del mes seleccionado -->
+      <div class="month-detail-panel" id="monthDetailPanel">
+        <div class="month-detail-header">
+          <h3 class="month-detail-title" id="monthDetailTitle">Detalle de Ventas</h3>
+          <span style="font-size:12.5px; color:#555;" id="monthDetailCount">0 registros</span>
+        </div>
+        <div class="table-wrapper" style="margin-top:8px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Costo Ud.</th>
+                <th>Venta Ud.</th>
+                <th>Total Vendido</th>
+                <th>Ganancia Neta</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="salesDetailBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tabla independiente: Historial de Cuándo se Vendió (borrar fila no baja el total de ganancia) -->
+      <div class="when-sold-panel" id="whenSoldPanel">
+        <div class="when-sold-header">
+          <h3 class="when-sold-title">Historial de Cuándo se Vendió</h3>
+          <span class="when-sold-note" id="whenSoldProfitFloorNote">
+            Borrar registros aquí no reduce el total de ganancia acumulada
+          </span>
+        </div>
+
+        <div class="when-sold-filters">
+          <input
+            type="text"
+            id="whenSoldSearchInput"
+            class="when-sold-search"
+            placeholder="Filtrar historial por código, producto o fecha (ej. 2026-11 o COD-001)..."
+            aria-label="Filtrar historial de cuándo se vendió"
+          />
+          <span style="font-size:12.5px; color:#475569; font-weight:bold;" id="whenSoldCountBadge">
+            0 registros
+          </span>
+        </div>
+
+        <div class="table-wrapper" style="margin-top:6px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha y Hora de Venta</th>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Cantidad Vendida</th>
+                <th>Total Vendido</th>
+                <th>Ganancia Generada</th>
+                <th>Quitar Registro</th>
+              </tr>
+            </thead>
+            <tbody id="whenSoldTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal para Registrar Venta Rápida -->
+  <div id="sellModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sellModalTitle">
+    <div class="modal-box sell-modal-box">
+      <h3 id="sellModalTitle">Registrar Venta</h3>
+      <div class="sell-product-summary" id="sellProductSummary"></div>
+
+      <form id="sellForm">
+        <input type="hidden" id="sellProductId" />
+        <div class="sell-field" id="sellProductSelectorGroup" style="display:none;">
+          <label for="sellProductSelect">Selecciona producto del inventario:</label>
+          <select id="sellProductSelect" class="stats-select" style="width:100%; font-weight:normal;"></select>
+        </div>
+        <div class="sell-field">
+          <label for="sellQuantityInput">Cantidad vendida:</label>
+          <input type="number" id="sellQuantityInput" min="1" step="1" required />
+        </div>
+        <div class="sell-field">
+          <label for="sellDateInput">Fecha de la venta:</label>
+          <input type="date" id="sellDateInput" required />
+        </div>
+
+        <div class="sell-preview-totals">
+          <span>Total venta: <strong id="sellPreviewTotal">RD$0.00</strong></span>
+          <span>Ganancia neta: <strong id="sellPreviewProfit" class="profit-positive">RD$0.00</strong></span>
+        </div>
+
+        <div id="sellErrorMsg" class="sell-error-msg"></div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-sell" style="padding:9px 16px;">Confirmar Venta</button>
+          <button type="button" id="sellCancelBtn" class="btn" style="background:#ccc; color:#333; padding:9px 14px;">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación reutilizable -->
+  <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <p id="confirmMessage">¿Confirmas esta acción?</p>
+      <div id="confirmExtraOption" style="margin-top:10px; font-size:13px; display:none;">
+        <label style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="restoreStockCheckbox" checked />
+          Devolver unidades vendidas al inventario
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="confirmYesBtn" class="btn btn-delete">Confirmar</button>
+        <button type="button" id="confirmNoBtn" class="btn" style="background:#ccc; color:#333;">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Configuración de Supabase (la clave publishable es pública por diseño; los datos
+    // están protegidos por Row Level Security: cada usuario solo ve sus propias filas) =====
+    const SUPABASE_URL = 'https://ktbikevfgknpcipyijct.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_pwiHHd1nDGlbSPDF4t73LA_Pl4zsCKR';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const LOW_STOCK_THRESHOLD = 5;
+
+    const MONTH_NAMES = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    const MONTH_SHORT = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
+
+    // Productos de ejemplo precargados solo si localStorage está vacío (incluye faltantes y agotados)
+    const DEFAULT_PRODUCTS = [
+      {
+        id: 1700000000101,
+        code: 'COD-001',
+        name: 'Gel Fijador Extra Fuerte 500g',
+        quantity: 14,
+        costPrice: 120.00,
+        salePrice: 185.00
+      },
+      {
+        id: 1700000000102,
+        code: 'COD-002',
+        name: 'Cuchillas de Afeitar (Caja x100)',
+        quantity: 3,
+        costPrice: 250.00,
+        salePrice: 360.00
+      },
+      {
+        id: 1700000000103,
+        code: 'COD-003',
+        name: 'Loción Aftershave Mentolada',
+        quantity: 9,
+        costPrice: 180.00,
+        salePrice: 275.00
+      },
+      {
+        id: 1700000000104,
+        code: 'COD-004',
+        name: 'Cera Mate para Cabello 150g',
+        quantity: 0,
+        costPrice: 160.00,
+        salePrice: 250.00
+      },
+      {
+        id: 1700000000105,
+        code: 'COD-005',
+        name: 'Talco Profesional 400g',
+        quantity: 11,
+        costPrice: 110.00,
+        salePrice: 175.00
+      },
+      {
+        id: 1700000000106,
+        code: 'COD-006',
+        name: 'Capa de Corte Impermeable',
+        quantity: 6,
+        costPrice: 320.00,
+        salePrice: 490.00
+      }
+    ];
+
+    // Ventas de ejemplo realistas distribuidas en Agosto, Septiembre, Octubre y Noviembre 2026
+    const DEFAULT_SALES = [
+      // Agosto 2026
+      {
+        id: 1786500000001,
+        date: '2026-08-06',
+        recordedAt: '2026-08-06 10:15',
+        code: 'COD-001',
+        name: 'Gel Fijador Extra Fuerte 500g',
+        quantity: 8,
+        costPrice: 120.00,
+        salePrice: 185.00,
+        totalRevenue: 1480.00,
+        netProfit: 520.00
+      },
+      {
+        id: 1787500000002,
+        date: '2026-08-19',
+        recordedAt: '2026-08-19 14:40',
+        code: 'COD-002',
+        name: 'Cuchillas de Afeitar (Caja x100)',
+        quantity: 4,
+        costPrice: 250.00,
+        salePrice: 360.00,
+        totalRevenue: 1440.00,
+        netProfit: 440.00
+      },
+      {
+        id: 1788200000003,
+        date: '2026-08-27',
+        recordedAt: '2026-08-27 17:05',
+        code: 'COD-005',
+        name: 'Talco Profesional 400g',
+        quantity: 5,
+        costPrice: 110.00,
+        salePrice: 175.00,
+        totalRevenue: 875.00,
+        netProfit: 325.00
+      },
+      // Septiembre 2026
+      {
+        id: 1789200000004,
+        date: '2026-09-08',
+        recordedAt: '2026-09-08 09:50',
+        code: 'COD-003',
+        name: 'Loción Aftershave Mentolada',
+        quantity: 7,
+        costPrice: 180.00,
+        salePrice: 275.00,
+        totalRevenue: 1925.00,
+        netProfit: 665.00
+      },
+      {
+        id: 1790100000005,
+        date: '2026-09-18',
+        recordedAt: '2026-09-18 16:20',
+        code: 'COD-006',
+        name: 'Capa de Corte Impermeable',
+        quantity: 3,
+        costPrice: 320.00,
+        salePrice: 490.00,
+        totalRevenue: 1470.00,
+        netProfit: 510.00
+      },
+      {
+        id: 1790800000006,
+        date: '2026-09-26',
+        recordedAt: '2026-09-26 12:30',
+        code: 'COD-001',
+        name: 'Gel Fijador Extra Fuerte 500g',
+        quantity: 10,
+        costPrice: 120.00,
+        salePrice: 185.00,
+        totalRevenue: 1850.00,
+        netProfit: 650.00
+      },
+      // Octubre 2026
+      {
+        id: 1791800000007,
+        date: '2026-10-05',
+        recordedAt: '2026-10-05 11:10',
+        code: 'COD-004',
+        name: 'Cera Mate para Cabello 150g',
+        quantity: 9,
+        costPrice: 160.00,
+        salePrice: 250.00,
+        totalRevenue: 2250.00,
+        netProfit: 810.00
+      },
+      {
+        id: 1792600000008,
+        date: '2026-10-15',
+        recordedAt: '2026-10-15 15:45',
+        code: 'COD-002',
+        name: 'Cuchillas de Afeitar (Caja x100)',
+        quantity: 6,
+        costPrice: 250.00,
+        salePrice: 360.00,
+        totalRevenue: 2160.00,
+        netProfit: 660.00
+      },
+      {
+        id: 1793400000009,
+        date: '2026-10-24',
+        recordedAt: '2026-10-24 18:12',
+        code: 'COD-005',
+        name: 'Talco Profesional 400g',
+        quantity: 8,
+        costPrice: 110.00,
+        salePrice: 175.00,
+        totalRevenue: 1400.00,
+        netProfit: 520.00
+      },
+      // Noviembre 2026
+      {
+        id: 1794500000010,
+        date: '2026-11-04',
+        recordedAt: '2026-11-04 10:05',
+        code: 'COD-001',
+        name: 'Gel Fijador Extra Fuerte 500g',
+        quantity: 12,
+        costPrice: 120.00,
+        salePrice: 185.00,
+        totalRevenue: 2220.00,
+        netProfit: 780.00
+      },
+      {
+        id: 1795300000011,
+        date: '2026-11-14',
+        recordedAt: '2026-11-14 13:25',
+        code: 'COD-003',
+        name: 'Loción Aftershave Mentolada',
+        quantity: 6,
+        costPrice: 180.00,
+        salePrice: 275.00,
+        totalRevenue: 1650.00,
+        netProfit: 570.00
+      },
+      {
+        id: 1796100000012,
+        date: '2026-11-23',
+        recordedAt: '2026-11-23 16:50',
+        code: 'COD-006',
+        name: 'Capa de Corte Impermeable',
+        quantity: 4,
+        costPrice: 320.00,
+        salePrice: 490.00,
+        totalRevenue: 1960.00,
+        netProfit: 680.00
+      }
+    ];
+
+    // Formateador en Pesos Dominicanos (RD$) con 2 decimales
+    const currencyFormatter = new Intl.NumberFormat('es-DO', {
+      style: 'currency',
+      currency: 'DOP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    function formatCurrency(amount) {
+      return currencyFormatter.format(amount);
+    }
+
+    function getTodayISO() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function getNowDateTimeFormatted(saleDateISO = '') {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const baseDate = saleDateISO || getTodayISO();
+      return `${baseDate} ${hh}:${mm}`;
+    }
+
+    let products = [];
+    let sales = [];
+    let protectedProfitFloor = 0;
+    let currentUser = null;
+    let remoteProductIds = new Set();
+    let remoteSaleIds = new Set();
+    let activeStockFilter = 'all'; // 'all' | 'low'
+    let activeMainTab = 'inventory'; // 'inventory' | 'sales' | 'stats'
+    let confirmActionCallback = null;
+    let toastTimer = null;
+
+    /**
+     * Muestra un banner de notificación temporal en la parte superior
+     */
+    function showToast(message) {
+      if (!toastBanner) return;
+      toastBanner.textContent = message;
+      toastBanner.classList.add('visible');
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+      }
+      toastTimer = setTimeout(() => {
+        toastBanner.classList.remove('visible');
+      }, 4000);
+    }
+
+    /**
+     * Limpia el mensaje de error de validación del formulario de productos
+     */
+    function clearFormError() {
+      if (!formFeedback) return;
+      formFeedback.textContent = '';
+      formFeedback.classList.remove('visible');
+    }
+
+    /**
+     * Muestra un mensaje de error de validación en el formulario de productos
+     */
+    function showFormError(message) {
+      if (!formFeedback) return;
+      formFeedback.textContent = message;
+      formFeedback.classList.add('visible');
+    }
+
+    /**
+     * Calcula la ganancia neta total garantizada (respetando el piso protegido
+     * aunque se quiten registros de las tablas de ventas o historial)
+     */
+    function getGuaranteedTotalProfit() {
+      const currentSalesProfit = sales.reduce((acc, s) => acc + s.netProfit, 0);
+      if (currentSalesProfit > protectedProfitFloor) {
+        protectedProfitFloor = currentSalesProfit;
+      }
+      return protectedProfitFloor;
+    }
+
+    // Referencias de navegación y notificaciones
+    const navInventoryBtn = document.getElementById('navInventoryBtn');
+    const navSalesBtn = document.getElementById('navSalesBtn');
+    const navStatsBtn = document.getElementById('navStatsBtn');
+    const navStockCount = document.getElementById('navStockCount');
+    const navSalesCount = document.getElementById('navSalesCount');
+    const navSalesProfitBadge = document.getElementById('navSalesProfitBadge');
+    const inventorySection = document.getElementById('inventorySection');
+    const salesSection = document.getElementById('salesSection');
+    const statsSection = document.getElementById('statsSection');
+    const toastBanner = document.getElementById('toastBanner');
+
+    // Referencias del DOM - Apartado Principal Ventas
+    const salesSearchInput = document.getElementById('salesSearchInput');
+    const salesMonthFilterSelect = document.getElementById('salesMonthFilterSelect');
+    const openQuickSaleBtn = document.getElementById('openQuickSaleBtn');
+    const salesTabTotalAmount = document.getElementById('salesTabTotalAmount');
+    const salesTabFilteredSub = document.getElementById('salesTabFilteredSub');
+    const salesTabProfitCard = document.getElementById('salesTabProfitCard');
+    const salesTabTotalProfit = document.getElementById('salesTabTotalProfit');
+    const salesTabFloorSub = document.getElementById('salesTabFloorSub');
+    const salesTabTotalUnits = document.getElementById('salesTabTotalUnits');
+    const salesTabTxCount = document.getElementById('salesTabTxCount');
+    const salesMainTableBody = document.getElementById('salesMainTableBody');
+
+    // Referencias del DOM - Inventario
+    const totalInvestmentEl = document.getElementById('totalInvestment');
+    const totalEstimatedSaleEl = document.getElementById('totalEstimatedSale');
+    const totalEstimatedProfitEl = document.getElementById('totalEstimatedProfit');
+    const profitSummaryCard = document.getElementById('profitSummaryCard');
+    const lowStockSummaryCard = document.getElementById('lowStockSummaryCard');
+    const lowStockCountEl = document.getElementById('lowStockCount');
+    const lowStockDetailEl = document.getElementById('lowStockDetail');
+
+    const searchInput = document.getElementById('search');
+    const filterAllBtn = document.getElementById('filterAllBtn');
+    const filterLowBtn = document.getElementById('filterLowBtn');
+    const allCountBadge = document.getElementById('allCountBadge');
+    const lowCountBadge = document.getElementById('lowCountBadge');
+
+    const formFeedback = document.getElementById('formFeedback');
+    const productForm = document.getElementById('productForm');
+    const productIdInput = document.getElementById('productId');
+    const productCodeInput = document.getElementById('productCode');
+    const productNameInput = document.getElementById('productName');
+    const productQuantityInput = document.getElementById('productQuantity');
+    const productCostInput = document.getElementById('productCost');
+    const productSaleInput = document.getElementById('productSale');
+    const submitBtn = document.getElementById('submitBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const productTableBody = document.getElementById('productTableBody');
+    const resetDataBtn = document.getElementById('resetDataBtn');
+
+    // Referencias del DOM - Estadísticas por Mes
+    const statsYearSelect = document.getElementById('statsYearSelect');
+    const statsMonthSelect = document.getElementById('statsMonthSelect');
+    const resetSalesBtn = document.getElementById('resetSalesBtn');
+    const clearSalesBtn = document.getElementById('clearSalesBtn');
+
+    const kpiSalesLabel = document.getElementById('kpiSalesLabel');
+    const kpiTotalRevenue = document.getElementById('kpiTotalRevenue');
+    const kpiTransactionsSub = document.getElementById('kpiTransactionsSub');
+    const kpiProfitCard = document.getElementById('kpiProfitCard');
+    const kpiProfitLabel = document.getElementById('kpiProfitLabel');
+    const kpiTotalNetProfit = document.getElementById('kpiTotalNetProfit');
+    const kpiMarginSub = document.getElementById('kpiMarginSub');
+    const kpiUnitsSold = document.getElementById('kpiUnitsSold');
+    const kpiTopProduct = document.getElementById('kpiTopProduct');
+    const kpiTopProductSub = document.getElementById('kpiTopProductSub');
+
+    const chartHeading = document.getElementById('chartHeading');
+    const monthlyBarChart = document.getElementById('monthlyBarChart');
+    const chartInfoBar = document.getElementById('chartInfoBar');
+    const monthlySummaryBody = document.getElementById('monthlySummaryBody');
+    const monthDetailTitle = document.getElementById('monthDetailTitle');
+    const monthDetailCount = document.getElementById('monthDetailCount');
+    const salesDetailBody = document.getElementById('salesDetailBody');
+
+    // Referencias tabla dedicada "Historial de Cuándo se Vendió"
+    const whenSoldSearchInput = document.getElementById('whenSoldSearchInput');
+    const whenSoldCountBadge = document.getElementById('whenSoldCountBadge');
+    const whenSoldTableBody = document.getElementById('whenSoldTableBody');
+    const whenSoldProfitFloorNote = document.getElementById('whenSoldProfitFloorNote');
+
+    // Referencias del Modal de Venta Rápida
+    const sellModal = document.getElementById('sellModal');
+    const sellForm = document.getElementById('sellForm');
+    const sellProductIdInput = document.getElementById('sellProductId');
+    const sellProductSelectorGroup = document.getElementById('sellProductSelectorGroup');
+    const sellProductSelect = document.getElementById('sellProductSelect');
+    const sellProductSummary = document.getElementById('sellProductSummary');
+    const sellQuantityInput = document.getElementById('sellQuantityInput');
+    const sellDateInput = document.getElementById('sellDateInput');
+    const sellPreviewTotal = document.getElementById('sellPreviewTotal');
+    const sellPreviewProfit = document.getElementById('sellPreviewProfit');
+    const sellErrorMsg = document.getElementById('sellErrorMsg');
+    const sellCancelBtn = document.getElementById('sellCancelBtn');
+
+    // Referencias del modal de confirmación
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmExtraOption = document.getElementById('confirmExtraOption');
+    const restoreStockCheckbox = document.getElementById('restoreStockCheckbox');
+    const confirmYesBtn = document.getElementById('confirmYesBtn');
+    const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+    // Referencias de Exportación y Respaldo
+    const exportInvCsvBtn = document.getElementById('exportInvCsvBtn');
+    const exportSalesCsvBtn = document.getElementById('exportSalesCsvBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const importJsonBtn = document.getElementById('importJsonBtn');
+    const importJsonFileInput = document.getElementById('importJsonFileInput');
+
+    // ==================== CAPA DE PERSISTENCIA (SUPABASE) ====================
+
+    const syncStatusEl = document.getElementById('syncStatus');
+    let syncChain = Promise.resolve();
+    let pendingSyncs = 0;
+
+    function setSyncStatus(text, isError = false) {
+      syncStatusEl.textContent = text;
+      syncStatusEl.classList.toggle('error', isError);
+    }
+
+    /** Encola una operación para que las escrituras ocurran en orden y sin pisarse. */
+    function queueSync(task) {
+      pendingSyncs++;
+      setSyncStatus('Guardando…');
+      syncChain = syncChain
+        .then(task)
+        .then(() => {
+          pendingSyncs--;
+          if (pendingSyncs === 0) setSyncStatus('Guardado en la nube ✓');
+        })
+        .catch(error => {
+          pendingSyncs--;
+          console.error('Error al sincronizar con Supabase:', error);
+          setSyncStatus('Error al guardar', true);
+          showToast('No se pudo guardar en la nube: ' + (error.message || error));
+        });
+      return syncChain;
+    }
+
+    const productToRow = p => ({
+      user_id: currentUser.id,
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      quantity: p.quantity,
+      cost_price: p.costPrice,
+      sale_price: p.salePrice
+    });
+
+    const rowToProduct = r => ({
+      id: Number(r.id),
+      code: String(r.code).toUpperCase(),
+      name: r.name,
+      quantity: Number(r.quantity),
+      costPrice: Number(r.cost_price),
+      salePrice: Number(r.sale_price)
+    });
+
+    const saleToRow = s => ({
+      user_id: currentUser.id,
+      id: s.id,
+      sale_date: s.date,
+      recorded_at: s.recordedAt,
+      code: s.code,
+      name: s.name,
+      quantity: s.quantity,
+      cost_price: s.costPrice,
+      sale_price: s.salePrice,
+      total_revenue: s.totalRevenue,
+      net_profit: s.netProfit
+    });
+
+    const rowToSale = r => ({
+      id: Number(r.id),
+      date: String(r.sale_date),
+      recordedAt: String(r.recorded_at),
+      code: String(r.code).toUpperCase(),
+      name: r.name,
+      quantity: Number(r.quantity),
+      costPrice: Number(r.cost_price),
+      salePrice: Number(r.sale_price),
+      totalRevenue: Number(r.total_revenue),
+      netProfit: Number(r.net_profit)
+    });
+
+    async function throwIfError(result) {
+      if (result.error) throw result.error;
+      return result.data;
+    }
+
+    /** Descarga una tabla completa en páginas de 1000 filas. */
+    async function fetchAllRows(table, orderColumn) {
+      const pageSize = 1000;
+      let from = 0;
+      const all = [];
+      while (true) {
+        const data = await throwIfError(
+          await sb.from(table).select('*').order(orderColumn).range(from, from + pageSize - 1)
+        );
+        all.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
+    }
+
+    /** Sincroniza el diff de una tabla: borra lo que ya no existe y hace upsert del resto. */
+    async function syncTable(table, rows, remoteIds) {
+      const currentIds = new Set(rows.map(r => r.id));
+      const toDelete = [...remoteIds].filter(id => !currentIds.has(id));
+      for (let i = 0; i < toDelete.length; i += 200) {
+        await throwIfError(
+          await sb.from(table).delete().eq('user_id', currentUser.id).in('id', toDelete.slice(i, i + 200))
+        );
+      }
+      for (let i = 0; i < rows.length; i += 200) {
+        await throwIfError(
+          await sb.from(table).upsert(rows.slice(i, i + 200), { onConflict: 'user_id,id' })
+        );
+      }
+      return currentIds;
+    }
+
+    function saveProducts() {
+      return queueSync(async () => {
+        const rows = products.map(productToRow);
+        remoteProductIds = await syncTable('products', rows, remoteProductIds);
+      });
+    }
+
+    function persistFloor() {
+      return queueSync(async () => {
+        await throwIfError(
+          await sb
+            .from('profit_floor')
+            .upsert({ user_id: currentUser.id, amount: protectedProfitFloor, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        );
+      });
+    }
+
+    function saveSales() {
+      const currentSalesProfit = sales.reduce((acc, s) => acc + s.netProfit, 0);
+      if (currentSalesProfit > protectedProfitFloor) {
+        protectedProfitFloor = currentSalesProfit;
+      }
+      const floorAtCall = protectedProfitFloor;
+      return queueSync(async () => {
+        const rows = sales.map(saleToRow);
+        remoteSaleIds = await syncTable('sales', rows, remoteSaleIds);
+        await throwIfError(
+          await sb
+            .from('profit_floor')
+            .upsert({ user_id: currentUser.id, amount: Math.max(floorAtCall, protectedProfitFloor), updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+        );
+      });
+    }
+
+    /** Carga todos los datos del usuario desde Supabase. */
+    async function loadAllFromCloud() {
+      const [productRows, saleRows, floorRow] = await Promise.all([
+        fetchAllRows('products', 'id'),
+        fetchAllRows('sales', 'id'),
+        sb.from('profit_floor').select('amount').eq('user_id', currentUser.id).maybeSingle().then(throwIfError)
+      ]);
+      products = productRows.map(rowToProduct);
+      sales = saleRows.map(rowToSale);
+      remoteProductIds = new Set(products.map(p => p.id));
+      remoteSaleIds = new Set(sales.map(s => s.id));
+      const computed = sales.reduce((acc, s) => acc + s.netProfit, 0);
+      protectedProfitFloor = Math.max(floorRow ? Number(floorRow.amount) : 0, computed);
+    }
+
+    // ==================== ACCESO (LOGIN / REGISTRO) ====================
+
+    const authOverlay = document.getElementById('authOverlay');
+    const authForm = document.getElementById('authForm');
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const authSwitchBtn = document.getElementById('authSwitchBtn');
+    const authSubtitle = document.getElementById('authSubtitle');
+    const authMsg = document.getElementById('authMsg');
+    const userBar = document.getElementById('userBar');
+    const userEmailLabel = document.getElementById('userEmailLabel');
+    const logoutBtn = document.getElementById('logoutBtn');
+    let authMode = 'login'; // 'login' | 'signup'
+
+    function showAuthMessage(text, kind = 'error') {
+      authMsg.textContent = text;
+      authMsg.className = 'auth-msg visible ' + kind;
+    }
+
+    function clearAuthMessage() {
+      authMsg.textContent = '';
+      authMsg.className = 'auth-msg';
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      clearAuthMessage();
+      if (mode === 'signup') {
+        authSubmitBtn.textContent = 'Crear cuenta';
+        authSwitchBtn.textContent = '¿Ya tienes cuenta? Iniciar sesión';
+        authSubtitle.textContent = 'Crea tu cuenta para guardar tus datos en la nube';
+        authPassword.autocomplete = 'new-password';
+      } else {
+        authSubmitBtn.textContent = 'Iniciar sesión';
+        authSwitchBtn.textContent = '¿No tienes cuenta? Crear una';
+        authSubtitle.textContent = 'Inicia sesión para ver tus datos';
+        authPassword.autocomplete = 'current-password';
+      }
+    }
+
+    authSwitchBtn.addEventListener('click', () => setAuthMode(authMode === 'login' ? 'signup' : 'login'));
+
+    function translateAuthError(error) {
+      const msg = String((error && error.message) || error || '');
+      if (/invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.';
+      if (/email not confirmed/i.test(msg)) return 'Debes confirmar tu correo antes de entrar. Revisa tu bandeja de entrada.';
+      if (/already registered/i.test(msg)) return 'Ese correo ya tiene una cuenta. Inicia sesión.';
+      if (/password should be at least/i.test(msg)) return 'La contraseña debe tener al menos 6 caracteres.';
+      if (/rate limit/i.test(msg)) return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+      return msg || 'Ocurrió un error. Inténtalo de nuevo.';
+    }
+
+    authForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      clearAuthMessage();
+      authSubmitBtn.disabled = true;
+      try {
+        const email = authEmail.value.trim();
+        const password = authPassword.value;
+        if (authMode === 'signup') {
+          const { data, error } = await sb.auth.signUp({ email, password });
+          if (error) throw error;
+          if (!data.session) {
+            showAuthMessage('Cuenta creada. Te enviamos un correo para confirmarla; después inicia sesión.', 'info');
+            setAuthMode('login');
+            showAuthMessage('Cuenta creada. Te enviamos un correo para confirmarla; después inicia sesión.', 'info');
+          }
+        } else {
+          const { error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        }
+      } catch (error) {
+        showAuthMessage(translateAuthError(error));
+      } finally {
+        authSubmitBtn.disabled = false;
+      }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      await syncChain;
+      await sb.auth.signOut();
+    });
+
+    let appStartedForUserId = null;
+
+    async function startAppForUser(user) {
+      if (appStartedForUserId === user.id) return;
+      appStartedForUserId = user.id;
+      currentUser = user;
+      userEmailLabel.textContent = user.email || '';
+      userBar.style.display = 'flex';
+      authOverlay.classList.add('hidden');
+      setSyncStatus('Cargando datos…');
+      try {
+        await loadAllFromCloud();
+        setSyncStatus('Guardado en la nube ✓');
+      } catch (error) {
+        console.error(error);
+        setSyncStatus('Error al cargar', true);
+        showToast('No se pudieron cargar tus datos: ' + (error.message || error));
+      }
+      resetFormState();
+      searchInput.value = '';
+      setStockFilter('all');
+      populateYearOptions();
+      renderTable();
+      renderMonthlyStats();
+      switchMainTab('inventory');
+    }
+
+    function showLoggedOut() {
+      appStartedForUserId = null;
+      currentUser = null;
+      products = [];
+      sales = [];
+      protectedProfitFloor = 0;
+      remoteProductIds = new Set();
+      remoteSaleIds = new Set();
+      userBar.style.display = 'none';
+      authPassword.value = '';
+      authOverlay.classList.remove('hidden');
+    }
+
+    /**
+     * Cambia entre las pestañas principales: Inventario, Ventas y Estadísticas por Mes
+     */
+    function switchMainTab(tabName) {
+      activeMainTab = tabName;
+
+      const isInventory = tabName === 'inventory';
+      const isSales = tabName === 'sales';
+      const isStats = tabName === 'stats';
+
+      navInventoryBtn.classList.toggle('active', isInventory);
+      navInventoryBtn.setAttribute('aria-selected', String(isInventory));
+      inventorySection.classList.toggle('active', isInventory);
+
+      navSalesBtn.classList.toggle('active', isSales);
+      navSalesBtn.setAttribute('aria-selected', String(isSales));
+      salesSection.classList.toggle('active', isSales);
+
+      navStatsBtn.classList.toggle('active', isStats);
+      navStatsBtn.setAttribute('aria-selected', String(isStats));
+      statsSection.classList.toggle('active', isStats);
+
+      if (isSales) {
+        renderSalesTab();
+      } else if (isStats) {
+        populateYearOptions();
+        renderMonthlyStats();
+      } else {
+        renderTable(searchInput.value);
+      }
+    }
+
+    navInventoryBtn.addEventListener('click', () => switchMainTab('inventory'));
+    navSalesBtn.addEventListener('click', () => switchMainTab('sales'));
+    navStatsBtn.addEventListener('click', () => switchMainTab('stats'));
+
+    /**
+     * Actualiza las insignias de la barra de navegación superior
+     */
+    function updateNavBadges() {
+      navStockCount.textContent = products.length;
+      if (navSalesCount) {
+        navSalesCount.textContent = sales.length;
+      }
+      const guaranteedNetProfit = getGuaranteedTotalProfit();
+      navSalesProfitBadge.textContent = formatCurrency(guaranteedNetProfit);
+      whenSoldProfitFloorNote.textContent = `Ganancia acumulada protegida: ${formatCurrency(guaranteedNetProfit)} (borrar filas no la reduce)`;
+    }
+
+    /**
+     * Calcula y actualiza las 4 tarjetas de resumen superior y los contadores de pestañas
+     */
+    function updateSummaryCards() {
+      let totalCost = 0;
+      let totalSale = 0;
+      let totalProfit = 0;
+      let lowStockTotal = 0;
+      let outOfStockTotal = 0;
+
+      products.forEach(p => {
+        totalCost += p.costPrice * p.quantity;
+        totalSale += p.salePrice * p.quantity;
+        totalProfit += (p.salePrice - p.costPrice) * p.quantity;
+
+        if (p.quantity === 0) {
+          outOfStockTotal++;
+          lowStockTotal++;
+        } else if (p.quantity < LOW_STOCK_THRESHOLD) {
+          lowStockTotal++;
+        }
+      });
+
+      totalInvestmentEl.textContent = formatCurrency(totalCost);
+      totalEstimatedSaleEl.textContent = formatCurrency(totalSale);
+      totalEstimatedProfitEl.textContent = formatCurrency(totalProfit);
+
+      if (totalProfit < 0) {
+        profitSummaryCard.classList.add('negative');
+        totalEstimatedProfitEl.classList.remove('profit-positive');
+        totalEstimatedProfitEl.classList.add('profit-negative');
+      } else {
+        profitSummaryCard.classList.remove('negative');
+        totalEstimatedProfitEl.classList.remove('profit-negative');
+        totalEstimatedProfitEl.classList.add('profit-positive');
+      }
+
+      // Actualizar tarjeta de productos faltantes
+      lowStockCountEl.textContent = lowStockTotal;
+      allCountBadge.textContent = products.length;
+      lowCountBadge.textContent = lowStockTotal;
+
+      if (outOfStockTotal > 0) {
+        lowStockSummaryCard.classList.add('has-alerts');
+        lowStockCountEl.classList.remove('alert-count-warning', 'profit-positive');
+        lowStockCountEl.classList.add('alert-count-danger');
+        lowStockDetailEl.textContent = `${outOfStockTotal} agotado(s) · ${lowStockTotal - outOfStockTotal} bajo stock`;
+      } else if (lowStockTotal > 0) {
+        lowStockSummaryCard.classList.remove('has-alerts');
+        lowStockCountEl.classList.remove('alert-count-danger', 'profit-positive');
+        lowStockCountEl.classList.add('alert-count-warning');
+        lowStockDetailEl.textContent = `${lowStockTotal} con menos de 5 unidades`;
+      } else {
+        lowStockSummaryCard.classList.remove('has-alerts');
+        lowStockCountEl.classList.remove('alert-count-danger', 'alert-count-warning');
+        lowStockCountEl.classList.add('profit-positive');
+        lowStockDetailEl.textContent = 'Todo el inventario abastecido';
+      }
+
+      updateNavBadges();
+    }
+
+    /**
+     * Cambia el filtro activo entre 'all' y 'low'
+     */
+    function setStockFilter(mode) {
+      activeStockFilter = mode;
+      if (mode === 'low') {
+        filterLowBtn.classList.add('active');
+        filterAllBtn.classList.remove('active');
+      } else {
+        filterAllBtn.classList.add('active');
+        filterLowBtn.classList.remove('active');
+      }
+      renderTable(searchInput.value);
+    }
+
+    /**
+     * Ajusta rápidamente el stock en +1 o -1 sin abrir el formulario de edición
+     */
+    function adjustStock(id, delta) {
+      const index = products.findIndex(p => p.id === id);
+      if (index === -1) return;
+
+      const updatedQty = Math.max(0, products[index].quantity + delta);
+      products[index].quantity = updatedQty;
+
+      // Si el producto se está editando actualmente en el formulario, sincronizar cantidad
+      if (Number(productIdInput.value) === id) {
+        productQuantityInput.value = updatedQty;
+      }
+
+      saveProducts();
+      renderTable(searchInput.value);
+    }
+
+    /**
+     * Renderiza la tabla filtrada por búsqueda (código o nombre) y estado de stock
+     */
+    function renderTable(filter = '') {
+      productTableBody.innerHTML = '';
+      const normalizedFilter = filter.trim().toLowerCase();
+
+      const filtered = products.filter(p => {
+        const matchesQuery =
+          p.name.toLowerCase().includes(normalizedFilter) ||
+          p.code.toLowerCase().includes(normalizedFilter);
+
+        const matchesStock =
+          activeStockFilter === 'all' || p.quantity < LOW_STOCK_THRESHOLD;
+
+        return matchesQuery && matchesStock;
+      });
+
+      if (filtered.length === 0) {
+        const emptyRow = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 9;
+        emptyCell.className = 'empty-state';
+
+        if (activeStockFilter === 'low' && !normalizedFilter) {
+          emptyCell.textContent = '¡Excelente! No tienes productos faltantes o agotados en este momento.';
+        } else if (normalizedFilter) {
+          emptyCell.textContent = 'No se encontraron productos que coincidan con ese código o nombre.';
+        } else {
+          emptyCell.textContent = 'No hay productos registrados en el inventario.';
+        }
+
+        emptyRow.appendChild(emptyCell);
+        productTableBody.appendChild(emptyRow);
+        updateSummaryCards();
+        return;
+      }
+
+      filtered.forEach(product => {
+        const tr = document.createElement('tr');
+        if (product.quantity === 0) {
+          tr.classList.add('row-out-stock');
+        } else if (product.quantity < LOW_STOCK_THRESHOLD) {
+          tr.classList.add('row-low-stock');
+        }
+
+        const unitProfit = product.salePrice - product.costPrice;
+        const totalProductProfit = unitProfit * product.quantity;
+
+        let marginPercent = 0;
+        if (product.costPrice > 0) {
+          marginPercent = (unitProfit / product.costPrice) * 100;
+        } else if (product.salePrice > 0) {
+          marginPercent = 100;
+        }
+
+        // 1. Código / SKU
+        const tdCode = document.createElement('td');
+        const codeTag = document.createElement('span');
+        codeTag.className = 'code-tag';
+        codeTag.textContent = product.code;
+        tdCode.appendChild(codeTag);
+
+        // 2. Producto
+        const tdName = document.createElement('td');
+        tdName.className = 'product-name-cell';
+        tdName.textContent = product.name;
+
+        // 3. Insignia de Estado ('Disponible' / 'Faltante' / 'Agotado')
+        const tdStatus = document.createElement('td');
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'status-badge';
+        if (product.quantity === 0) {
+          statusBadge.classList.add('status-out');
+          statusBadge.textContent = 'Agotado';
+        } else if (product.quantity < LOW_STOCK_THRESHOLD) {
+          statusBadge.classList.add('status-low');
+          statusBadge.textContent = 'Faltante';
+        } else {
+          statusBadge.classList.add('status-available');
+          statusBadge.textContent = 'Disponible';
+        }
+        tdStatus.appendChild(statusBadge);
+
+        // 4. Cantidad con botones rápidos -1 / +1
+        const tdQuantity = document.createElement('td');
+        const qtyControl = document.createElement('div');
+        qtyControl.className = 'qty-control';
+
+        const minusBtn = document.createElement('button');
+        minusBtn.type = 'button';
+        minusBtn.className = 'qty-btn minus';
+        minusBtn.textContent = '−';
+        minusBtn.title = 'Descontar 1 unidad';
+        minusBtn.disabled = product.quantity === 0;
+        minusBtn.addEventListener('click', () => adjustStock(product.id, -1));
+
+        const qtySpan = document.createElement('span');
+        qtySpan.className = 'qty-value';
+        qtySpan.textContent = product.quantity;
+        if (product.quantity < LOW_STOCK_THRESHOLD) {
+          qtySpan.classList.add('alert-low-stock');
+        }
+
+        const plusBtn = document.createElement('button');
+        plusBtn.type = 'button';
+        plusBtn.className = 'qty-btn plus';
+        plusBtn.textContent = '+';
+        plusBtn.title = 'Reponer 1 unidad';
+        plusBtn.addEventListener('click', () => adjustStock(product.id, 1));
+
+        qtyControl.append(minusBtn, qtySpan, plusBtn);
+        tdQuantity.appendChild(qtyControl);
+
+        // 5. Costo unitario
+        const tdCost = document.createElement('td');
+        tdCost.textContent = formatCurrency(product.costPrice);
+
+        // 6. Precio de venta unitario
+        const tdSale = document.createElement('td');
+        tdSale.textContent = formatCurrency(product.salePrice);
+
+        // 7. Ganancia por unidad + insignia de margen %
+        const tdUnitProfit = document.createElement('td');
+        const unitProfitText = document.createElement('span');
+        unitProfitText.textContent = formatCurrency(unitProfit);
+        unitProfitText.className = unitProfit >= 0 ? 'profit-positive' : 'profit-negative';
+        unitProfitText.style.fontWeight = 'bold';
+
+        const marginBadge = document.createElement('span');
+        marginBadge.className = 'margin-badge' + (unitProfit < 0 ? ' negative' : '');
+        const sign = marginPercent > 0 ? '+' : '';
+        marginBadge.textContent = `${sign}${Math.round(marginPercent)}%`;
+
+        tdUnitProfit.appendChild(unitProfitText);
+        tdUnitProfit.appendChild(marginBadge);
+
+        // 8. Ganancia total del producto en inventario
+        const tdTotalProfit = document.createElement('td');
+        tdTotalProfit.textContent = formatCurrency(totalProductProfit);
+        tdTotalProfit.style.fontWeight = 'bold';
+        tdTotalProfit.className = totalProductProfit >= 0 ? 'profit-positive' : 'profit-negative';
+
+        // 9. Acciones (Vender / Editar / Eliminar)
+        const tdActions = document.createElement('td');
+        tdActions.style.whiteSpace = 'nowrap';
+
+        const sellBtn = document.createElement('button');
+        sellBtn.type = 'button';
+        sellBtn.className = 'btn btn-sell';
+        sellBtn.textContent = 'Vender';
+        sellBtn.disabled = product.quantity === 0;
+        sellBtn.title = product.quantity === 0 ? 'Sin stock disponible' : 'Registrar venta de este producto';
+        sellBtn.addEventListener('click', () => openSellModal(product.id));
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'btn btn-edit';
+        editBtn.textContent = 'Editar';
+        editBtn.addEventListener('click', () => startEditProduct(product.id));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-delete';
+        deleteBtn.textContent = 'Eliminar';
+        deleteBtn.addEventListener('click', () => requestDeleteProduct(product.id));
+
+        tdActions.append(sellBtn, editBtn, deleteBtn);
+
+        tr.append(
+          tdCode,
+          tdName,
+          tdStatus,
+          tdQuantity,
+          tdCost,
+          tdSale,
+          tdUnitProfit,
+          tdTotalProfit,
+          tdActions
+        );
+
+        productTableBody.appendChild(tr);
+      });
+
+      updateSummaryCards();
+    }
+
+    // ==================== SISTEMA DE VENTA RÁPIDA ====================
+
+    function getActiveModalProduct() {
+      const id = Number(sellProductIdInput.value);
+      return products.find(p => p.id === id) || null;
+    }
+
+    function renderSellModalProductInfo(product) {
+      sellProductSummary.innerHTML = '';
+      if (!product) {
+        const emptyInfo = document.createElement('div');
+        emptyInfo.textContent = 'No hay productos con stock disponible para vender.';
+        sellProductSummary.appendChild(emptyInfo);
+        return;
+      }
+
+      const line1 = document.createElement('div');
+      line1.innerHTML = `<strong>${product.code}</strong> — ${product.name}`;
+      const line2 = document.createElement('div');
+      line2.textContent = `Stock disponible: ${product.quantity} ud. | Precio venta: ${formatCurrency(product.salePrice)}`;
+      sellProductSummary.append(line1, line2);
+    }
+
+    function updateSellPreview() {
+      const product = getActiveModalProduct();
+      if (!product) {
+        sellPreviewTotal.textContent = formatCurrency(0);
+        sellPreviewProfit.textContent = formatCurrency(0);
+        return;
+      }
+
+      const qty = Math.max(0, parseInt(sellQuantityInput.value, 10) || 0);
+      const total = product.salePrice * qty;
+      const profit = (product.salePrice - product.costPrice) * qty;
+
+      sellPreviewTotal.textContent = formatCurrency(total);
+      sellPreviewProfit.textContent = formatCurrency(profit);
+      sellPreviewProfit.className = profit >= 0 ? 'profit-positive' : 'profit-negative';
+
+      if (qty > product.quantity) {
+        sellErrorMsg.textContent = `Stock insuficiente: solo tienes ${product.quantity} unidad(es) disponibles.`;
+        sellErrorMsg.classList.add('visible');
+      } else if (qty <= 0) {
+        sellErrorMsg.textContent = 'La cantidad vendida debe ser al menos 1.';
+        sellErrorMsg.classList.add('visible');
+      } else {
+        sellErrorMsg.classList.remove('visible');
+      }
+    }
+
+    function openSellModal(productId = null) {
+      const availableProducts = products.filter(p => p.quantity > 0);
+      let product = productId ? products.find(p => p.id === productId) : availableProducts[0];
+
+      if (!product) {
+        showToast('No hay productos con stock disponible para registrar una venta.');
+        return;
+      }
+
+      if (productId === null) {
+        sellProductSelectorGroup.style.display = 'block';
+        sellProductSelect.innerHTML = '';
+        availableProducts.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = String(p.id);
+          opt.textContent = `${p.code} — ${p.name} (Stock: ${p.quantity} · ${formatCurrency(p.salePrice)})`;
+          sellProductSelect.appendChild(opt);
+        });
+        sellProductSelect.value = String(product.id);
+      } else {
+        sellProductSelectorGroup.style.display = 'none';
+      }
+
+      sellProductIdInput.value = product.id;
+      sellQuantityInput.value = 1;
+      sellQuantityInput.max = product.quantity;
+      sellDateInput.value = getTodayISO();
+      sellErrorMsg.classList.remove('visible');
+
+      renderSellModalProductInfo(product);
+      updateSellPreview();
+      sellModal.classList.add('active');
+      sellQuantityInput.focus();
+      sellQuantityInput.select();
+    }
+
+    sellProductSelect.addEventListener('change', () => {
+      const selectedProd = products.find(p => p.id === Number(sellProductSelect.value));
+      if (!selectedProd) return;
+      sellProductIdInput.value = selectedProd.id;
+      sellQuantityInput.max = selectedProd.quantity;
+      if ((parseInt(sellQuantityInput.value, 10) || 0) > selectedProd.quantity) {
+        sellQuantityInput.value = Math.max(1, selectedProd.quantity);
+      }
+      renderSellModalProductInfo(selectedProd);
+      updateSellPreview();
+    });
+
+    if (openQuickSaleBtn) {
+      openQuickSaleBtn.addEventListener('click', () => openSellModal(null));
+    }
+
+    function closeSellModal() {
+      sellModal.classList.remove('active');
+      sellErrorMsg.classList.remove('visible');
+    }
+
+    sellQuantityInput.addEventListener('input', updateSellPreview);
+    sellCancelBtn.addEventListener('click', closeSellModal);
+    sellModal.addEventListener('click', e => {
+      if (e.target === sellModal) closeSellModal();
+    });
+
+    sellForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = Number(sellProductIdInput.value);
+      const productIndex = products.findIndex(p => p.id === id);
+      if (productIndex === -1) return;
+
+      const product = products[productIndex];
+      const qtySold = parseInt(sellQuantityInput.value, 10);
+      const saleDate = sellDateInput.value;
+
+      if (isNaN(qtySold) || qtySold <= 0) {
+        sellErrorMsg.textContent = 'Ingresa una cantidad válida mayor a 0.';
+        sellErrorMsg.classList.add('visible');
+        return;
+      }
+
+      if (qtySold > product.quantity) {
+        sellErrorMsg.textContent = `Stock insuficiente: solo hay ${product.quantity} unidad(es) en inventario.`;
+        sellErrorMsg.classList.add('visible');
+        return;
+      }
+
+      if (!saleDate) {
+        sellErrorMsg.textContent = 'Selecciona una fecha válida para la venta.';
+        sellErrorMsg.classList.add('visible');
+        return;
+      }
+
+      // 1. Descontar stock en inventario
+      products[productIndex].quantity -= qtySold;
+      if (Number(productIdInput.value) === id) {
+        productQuantityInput.value = products[productIndex].quantity;
+      }
+      // 2. Registrar la venta en el historial (incluyendo fecha y hora de cuándo se vendió)
+      const totalRevenue = Number((product.salePrice * qtySold).toFixed(2));
+      const netProfit = Number(((product.salePrice - product.costPrice) * qtySold).toFixed(2));
+
+      sales.push({
+        id: Date.now(),
+        date: saleDate,
+        recordedAt: getNowDateTimeFormatted(saleDate),
+        code: product.code,
+        name: product.name,
+        quantity: qtySold,
+        costPrice: product.costPrice,
+        salePrice: product.salePrice,
+        totalRevenue,
+        netProfit
+      });
+
+      saveProducts();
+      saveSales();
+      closeSellModal();
+      renderTable(searchInput.value);
+      if (activeMainTab === 'sales') {
+        renderSalesTab();
+      } else if (activeMainTab === 'stats') {
+        populateYearOptions();
+        renderMonthlyStats();
+      }
+
+      showToast(
+        `Venta registrada: ${qtySold}x ${product.name} (${formatCurrency(totalRevenue)}) · Ganancia neta: ${formatCurrency(netProfit)}`
+      );
+    });
+
+    // ==================== APARTADO PRINCIPAL: LISTADO DE VENTAS ====================
+
+    /**
+     * Renderiza el apartado principal 'Ventas' con sus tarjetas de resumen,
+     * filtros por texto o mes y tabla detallada con opción de quitar/anular.
+     */
+    function renderSalesTab() {
+      const query = (salesSearchInput ? salesSearchInput.value : '').trim().toLowerCase();
+      const monthFilter = salesMonthFilterSelect ? salesMonthFilterSelect.value : 'all';
+
+      const sortedSales = [...sales].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      const filteredSales = sortedSales.filter(s => {
+        const matchesMonth =
+          monthFilter === 'all' || (s.date && s.date.slice(5, 7) === monthFilter);
+        const matchesText =
+          !query ||
+          s.name.toLowerCase().includes(query) ||
+          s.code.toLowerCase().includes(query) ||
+          s.date.toLowerCase().includes(query) ||
+          String(s.recordedAt || '').toLowerCase().includes(query);
+
+        return matchesMonth && matchesText;
+      });
+
+      let totalSalesAmount = 0;
+      let totalSalesProfit = 0;
+      let totalSalesUnits = 0;
+
+      filteredSales.forEach(s => {
+        totalSalesAmount += s.totalRevenue;
+        totalSalesProfit += s.netProfit;
+        totalSalesUnits += s.quantity;
+      });
+
+      const guaranteedProfit = getGuaranteedTotalProfit();
+      const isUnfilteredAll = !query && monthFilter === 'all';
+      const displayedProfit = isUnfilteredAll
+        ? Math.max(totalSalesProfit, guaranteedProfit)
+        : totalSalesProfit;
+
+      salesTabTotalAmount.textContent = formatCurrency(totalSalesAmount);
+      salesTabFilteredSub.textContent =
+        monthFilter === 'all'
+          ? 'Todos los meses registrados'
+          : `Mes: ${MONTH_NAMES[parseInt(monthFilter, 10) - 1]}`;
+
+      salesTabTotalProfit.textContent = formatCurrency(displayedProfit);
+      salesTabTotalProfit.className =
+        'card-value ' + (displayedProfit < 0 ? 'profit-negative' : 'profit-positive');
+      salesTabProfitCard.classList.toggle('negative', displayedProfit < 0);
+      salesTabFloorSub.textContent = `Ganancia acumulada protegida: ${formatCurrency(guaranteedProfit)}`;
+
+      salesTabTotalUnits.textContent = totalSalesUnits;
+      salesTabTxCount.textContent = filteredSales.length;
+
+      salesMainTableBody.innerHTML = '';
+
+      if (filteredSales.length === 0) {
+        const emptyRow = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 8;
+        emptyCell.className = 'empty-state';
+        emptyCell.textContent =
+          sales.length === 0
+            ? 'Aún no hay ventas registradas. Haz clic en "+ Registrar Venta" para agregar la primera.'
+            : 'No se encontraron ventas que coincidan con el filtro aplicado.';
+        emptyRow.appendChild(emptyCell);
+        salesMainTableBody.appendChild(emptyRow);
+        updateNavBadges();
+        return;
+      }
+
+      filteredSales.forEach(sale => {
+        const tr = document.createElement('tr');
+
+        const tdWhen = document.createElement('td');
+        tdWhen.style.fontWeight = '600';
+        tdWhen.textContent = sale.recordedAt || sale.date;
+
+        const tdCode = document.createElement('td');
+        const codeTag = document.createElement('span');
+        codeTag.className = 'code-tag';
+        codeTag.textContent = sale.code;
+        tdCode.appendChild(codeTag);
+
+        const tdName = document.createElement('td');
+        tdName.className = 'product-name-cell';
+        tdName.textContent = sale.name;
+
+        const tdQty = document.createElement('td');
+        tdQty.style.fontWeight = 'bold';
+        tdQty.textContent = sale.quantity;
+
+        const tdUnitPrice = document.createElement('td');
+        tdUnitPrice.textContent = formatCurrency(sale.salePrice);
+
+        const tdTotal = document.createElement('td');
+        tdTotal.style.fontWeight = 'bold';
+        tdTotal.textContent = formatCurrency(sale.totalRevenue);
+
+        const tdProfit = document.createElement('td');
+        tdProfit.style.fontWeight = 'bold';
+        tdProfit.className = sale.netProfit >= 0 ? 'profit-positive' : 'profit-negative';
+        tdProfit.textContent = formatCurrency(sale.netProfit);
+
+        const tdActions = document.createElement('td');
+        const removeSaleBtn = document.createElement('button');
+        removeSaleBtn.type = 'button';
+        removeSaleBtn.className = 'btn btn-delete';
+        removeSaleBtn.textContent = 'Quitar';
+        removeSaleBtn.title = 'Quitar registro sin reducir el total de ganancia acumulada protegida';
+        removeSaleBtn.addEventListener('click', () => removeSaleFromSalesTab(sale.id));
+        tdActions.appendChild(removeSaleBtn);
+
+        tr.append(
+          tdWhen,
+          tdCode,
+          tdName,
+          tdQty,
+          tdUnitPrice,
+          tdTotal,
+          tdProfit,
+          tdActions
+        );
+
+        salesMainTableBody.appendChild(tr);
+      });
+
+      updateNavBadges();
+    }
+
+    /**
+     * Quita un registro desde la tabla principal de Ventas sin reducir
+     * el total de ganancia acumulada protegida.
+     */
+    function removeSaleFromSalesTab(saleId) {
+      const entry = sales.find(s => s.id === saleId);
+      if (!entry) return;
+
+      openConfirmModal(
+        `¿Quitar la venta de ${entry.quantity}x ${entry.name} (${entry.recordedAt || entry.date})? El total de ganancia acumulada se mantendrá sin bajar.`,
+        () => {
+          const currentProfitSum = sales.reduce((acc, s) => acc + s.netProfit, 0);
+          protectedProfitFloor = Math.max(protectedProfitFloor, currentProfitSum);
+
+          sales = sales.filter(s => s.id !== saleId);
+          saveSales();
+          renderSalesTab();
+          renderMonthlyStats();
+          showToast(
+            `Venta quitada del listado. Ganancia total preservada en ${formatCurrency(protectedProfitFloor)}.`
+          );
+        }
+      );
+    }
+
+    if (salesSearchInput) {
+      salesSearchInput.addEventListener('input', renderSalesTab);
+    }
+
+    if (salesMonthFilterSelect) {
+      salesMonthFilterSelect.addEventListener('change', renderSalesTab);
+    }
+
+    // ==================== ESTADÍSTICAS DE VENTAS POR MES ====================
+
+    function populateYearOptions() {
+      const yearsSet = new Set(['2025', '2026', String(new Date().getFullYear())]);
+      sales.forEach(s => {
+        if (s.date && s.date.length >= 4) {
+          yearsSet.add(s.date.slice(0, 4));
+        }
+      });
+
+      const sortedYears = Array.from(yearsSet).sort((a, b) => Number(b) - Number(a));
+      const previousSelected = statsYearSelect.value || '2026';
+
+      statsYearSelect.innerHTML = '';
+      sortedYears.forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = year;
+        opt.textContent = `Año ${year}`;
+        statsYearSelect.appendChild(opt);
+      });
+
+      if (sortedYears.includes(previousSelected)) {
+        statsYearSelect.value = previousSelected;
+      } else {
+        statsYearSelect.value = sortedYears[0];
+      }
+    }
+
+    function renderMonthlyStats() {
+      const selectedYear = statsYearSelect.value || '2026';
+      const selectedMonth = statsMonthSelect.value || 'all';
+
+      // Filtrar ventas del año seleccionado
+      const yearSales = sales.filter(s => s.date && s.date.startsWith(`${selectedYear}-`));
+
+      // Agrupar datos por cada uno de los 12 meses (01 a 12)
+      const monthlyBuckets = Array.from({ length: 12 }, (_, idx) => {
+        const monthCode = String(idx + 1).padStart(2, '0');
+        return {
+          monthIndex: idx,
+          monthCode,
+          monthName: MONTH_NAMES[idx],
+          monthShort: MONTH_SHORT[idx],
+          transactions: 0,
+          units: 0,
+          costTotal: 0,
+          revenue: 0,
+          netProfit: 0
+        };
+      });
+
+      yearSales.forEach(sale => {
+        const monthPart = sale.date.slice(5, 7);
+        const mIdx = parseInt(monthPart, 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) {
+          const b = monthlyBuckets[mIdx];
+          b.transactions += 1;
+          b.units += sale.quantity;
+          b.costTotal += sale.costPrice * sale.quantity;
+          b.revenue += sale.totalRevenue;
+          b.netProfit += sale.netProfit;
+        }
+      });
+
+      // Filtrar ventas para las tarjetas KPI y la tabla de detalle según si hay un mes elegido
+      const periodSales =
+        selectedMonth === 'all'
+          ? yearSales
+          : yearSales.filter(s => s.date.slice(5, 7) === selectedMonth);
+
+      let periodRevenue = 0;
+      let periodCost = 0;
+      let periodProfit = 0;
+      let periodUnits = 0;
+      const productRanking = {};
+
+      periodSales.forEach(s => {
+        periodRevenue += s.totalRevenue;
+        periodCost += s.costPrice * s.quantity;
+        periodProfit += s.netProfit;
+        periodUnits += s.quantity;
+
+        const key = `${s.code} — ${s.name}`;
+        if (!productRanking[key]) {
+          productRanking[key] = { units: 0, revenue: 0 };
+        }
+        productRanking[key].units += s.quantity;
+        productRanking[key].revenue += s.totalRevenue;
+      });
+
+      const periodLabelText =
+        selectedMonth === 'all'
+          ? `Año ${selectedYear}`
+          : `${MONTH_NAMES[parseInt(selectedMonth, 10) - 1]} ${selectedYear}`;
+
+      const guaranteedTotalProfit = getGuaranteedTotalProfit();
+      const rawPeriodProfit = periodSales.reduce((acc, s) => acc + s.netProfit, 0);
+      const displayedPeriodProfit =
+        selectedMonth === 'all' && selectedYear === String(new Date().getFullYear())
+          ? Math.max(rawPeriodProfit, guaranteedTotalProfit)
+          : periodProfit;
+
+      kpiSalesLabel.textContent = `Total Vendido (${periodLabelText})`;
+      kpiTotalRevenue.textContent = formatCurrency(periodRevenue);
+      kpiTransactionsSub.textContent = `${periodSales.length} venta(s) registrada(s)`;
+
+      kpiProfitLabel.textContent = `Ganancia Neta (${periodLabelText})`;
+      kpiTotalNetProfit.textContent = formatCurrency(displayedPeriodProfit);
+
+      const periodMargin = periodCost > 0 ? (displayedPeriodProfit / periodCost) * 100 : 0;
+      kpiMarginSub.textContent = `Margen sobre costo: ${periodMargin.toFixed(1)}% · Ganancia total protegida: ${formatCurrency(guaranteedTotalProfit)}`;
+
+      if (displayedPeriodProfit < 0) {
+        kpiProfitCard.classList.add('negative');
+        kpiTotalNetProfit.classList.remove('profit-positive');
+        kpiTotalNetProfit.classList.add('profit-negative');
+      } else {
+        kpiProfitCard.classList.remove('negative');
+        kpiTotalNetProfit.classList.remove('profit-negative');
+        kpiTotalNetProfit.classList.add('profit-positive');
+      }
+
+      kpiUnitsSold.textContent = periodUnits;
+
+      const rankedProducts = Object.entries(productRanking).sort((a, b) => b[1].units - a[1].units);
+      if (rankedProducts.length > 0) {
+        kpiTopProduct.textContent = rankedProducts[0][0];
+        kpiTopProductSub.textContent = `${rankedProducts[0][1].units} ud. vendidas (${formatCurrency(rankedProducts[0][1].revenue)})`;
+      } else {
+        kpiTopProduct.textContent = '—';
+        kpiTopProductSub.textContent = 'Sin ventas en el período';
+      }
+
+      chartHeading.textContent = `Rendimiento Mensual (${selectedYear}): Ingresos vs. Ganancia Neta`;
+
+      const maxChartValue = Math.max(
+        1,
+        ...monthlyBuckets.map(b => Math.max(b.revenue, b.netProfit, 0))
+      );
+
+      monthlyBarChart.innerHTML = '';
+      monthlySummaryBody.innerHTML = '';
+
+      monthlyBuckets.forEach(bucket => {
+        const isSelected = selectedMonth === bucket.monthCode;
+
+        const col = document.createElement('div');
+        col.className = 'month-bar-col' + (isSelected ? ' selected-month' : '');
+        col.title = `${bucket.monthName} ${selectedYear}: Ingresos ${formatCurrency(bucket.revenue)} | Ganancia ${formatCurrency(bucket.netProfit)}`;
+
+        const pair = document.createElement('div');
+        pair.className = 'bars-pair';
+
+        const revHeight = bucket.revenue > 0 ? Math.max(6, Math.round((bucket.revenue / maxChartValue) * 165)) : 0;
+        const profHeight = bucket.netProfit > 0 ? Math.max(6, Math.round((bucket.netProfit / maxChartValue) * 165)) : 0;
+
+        const revBar = document.createElement('div');
+        revBar.className = 'bar-stick revenue' + (revHeight === 0 ? ' zero' : '');
+        revBar.style.height = `${revHeight}px`;
+
+        const profBar = document.createElement('div');
+        profBar.className = 'bar-stick profit' + (profHeight === 0 ? ' zero' : '');
+        profBar.style.height = `${profHeight}px`;
+
+        pair.append(revBar, profBar);
+
+        const label = document.createElement('span');
+        label.className = 'month-label';
+        label.textContent = bucket.monthShort;
+
+        col.append(pair, label);
+        col.addEventListener('click', () => {
+          statsMonthSelect.value = statsMonthSelect.value === bucket.monthCode ? 'all' : bucket.monthCode;
+          renderMonthlyStats();
+        });
+        monthlyBarChart.appendChild(col);
+
+        const tr = document.createElement('tr');
+        tr.className = 'clickable-month-row' + (isSelected ? ' selected-month-row' : '');
+        tr.addEventListener('click', () => {
+          statsMonthSelect.value = statsMonthSelect.value === bucket.monthCode ? 'all' : bucket.monthCode;
+          renderMonthlyStats();
+        });
+
+        const marginPct = bucket.costTotal > 0 ? ((bucket.netProfit / bucket.costTotal) * 100).toFixed(1) + '%' : '—';
+
+        const tdMonth = document.createElement('td');
+        tdMonth.textContent = bucket.monthName;
+
+        const tdTx = document.createElement('td');
+        tdTx.textContent = bucket.transactions;
+
+        const tdUnits = document.createElement('td');
+        tdUnits.textContent = bucket.units;
+
+        const tdCost = document.createElement('td');
+        tdCost.textContent = formatCurrency(bucket.costTotal);
+
+        const tdRev = document.createElement('td');
+        tdRev.style.fontWeight = 'bold';
+        tdRev.textContent = formatCurrency(bucket.revenue);
+
+        const tdProf = document.createElement('td');
+        tdProf.style.fontWeight = 'bold';
+        tdProf.className = bucket.netProfit >= 0 ? 'profit-positive' : 'profit-negative';
+        tdProf.textContent = formatCurrency(bucket.netProfit);
+
+        const tdMargin = document.createElement('td');
+        tdMargin.textContent = marginPct;
+
+        tr.append(tdMonth, tdTx, tdUnits, tdCost, tdRev, tdProf, tdMargin);
+        monthlySummaryBody.appendChild(tr);
+      });
+
+      chartInfoBar.innerHTML =
+        `<span><strong>Período:</strong> ${periodLabelText}</span>` +
+        `<span><strong>Ingresos:</strong> ${formatCurrency(periodRevenue)}</span>` +
+        `<span><strong>Ganancia Neta:</strong> <strong class="${displayedPeriodProfit >= 0 ? 'profit-positive' : 'profit-negative'}">${formatCurrency(displayedPeriodProfit)}</strong></span>`;
+
+      monthDetailTitle.textContent = `Detalle de Ventas — ${periodLabelText}`;
+      const sortedPeriodSales = [...periodSales].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+      monthDetailCount.textContent = `${sortedPeriodSales.length} registro(s)`;
+      salesDetailBody.innerHTML = '';
+
+      if (sortedPeriodSales.length === 0) {
+        const emptyRow = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 9;
+        emptyCell.className = 'empty-state';
+        emptyCell.textContent = `No hay ventas registradas para ${periodLabelText}.`;
+        emptyRow.appendChild(emptyCell);
+        salesDetailBody.appendChild(emptyRow);
+      } else {
+        sortedPeriodSales.forEach(sale => {
+          const tr = document.createElement('tr');
+
+          const tdDate = document.createElement('td');
+          tdDate.textContent = sale.date;
+
+          const tdCode = document.createElement('td');
+          const codeSpan = document.createElement('span');
+          codeSpan.className = 'code-tag';
+          codeSpan.textContent = sale.code;
+          tdCode.appendChild(codeSpan);
+
+          const tdName = document.createElement('td');
+          tdName.className = 'product-name-cell';
+          tdName.textContent = sale.name;
+
+          const tdQty = document.createElement('td');
+          tdQty.style.fontWeight = 'bold';
+          tdQty.textContent = sale.quantity;
+
+          const tdCost = document.createElement('td');
+          tdCost.textContent = formatCurrency(sale.costPrice);
+
+          const tdSale = document.createElement('td');
+          tdSale.textContent = formatCurrency(sale.salePrice);
+
+          const tdTotal = document.createElement('td');
+          tdTotal.style.fontWeight = 'bold';
+          tdTotal.textContent = formatCurrency(sale.totalRevenue);
+
+          const tdProfit = document.createElement('td');
+          tdProfit.style.fontWeight = 'bold';
+          tdProfit.className = sale.netProfit >= 0 ? 'profit-positive' : 'profit-negative';
+          tdProfit.textContent = formatCurrency(sale.netProfit);
+
+          const tdAction = document.createElement('td');
+          const cancelSaleBtn = document.createElement('button');
+          cancelSaleBtn.type = 'button';
+          cancelSaleBtn.className = 'btn btn-delete';
+          cancelSaleBtn.textContent = 'Anular';
+          cancelSaleBtn.addEventListener('click', () => requestDeleteSale(sale.id));
+          tdAction.appendChild(cancelSaleBtn);
+
+          tr.append(tdDate, tdCode, tdName, tdQty, tdCost, tdSale, tdTotal, tdProfit, tdAction);
+          salesDetailBody.appendChild(tr);
+        });
+      }
+
+      renderWhenSoldHistoryTable();
+      if (activeMainTab === 'sales') {
+        renderSalesTab();
+      }
+      updateNavBadges();
+    }
+
+    /**
+     * Renderiza la tabla dedicada "Historial de Cuándo se Vendió".
+     * Quitar una fila aquí borra el registro de la tabla sin bajar la ganancia total acumulada.
+     */
+    function renderWhenSoldHistoryTable() {
+      const query = (whenSoldSearchInput ? whenSoldSearchInput.value : '').trim().toLowerCase();
+      const sortedAllSales = [...sales].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      const filteredEntries = sortedAllSales.filter(s => {
+        if (!query) return true;
+        return (
+          s.name.toLowerCase().includes(query) ||
+          s.code.toLowerCase().includes(query) ||
+          s.date.toLowerCase().includes(query) ||
+          String(s.recordedAt || '').toLowerCase().includes(query)
+        );
+      });
+
+      whenSoldCountBadge.textContent = `${filteredEntries.length} registro(s)`;
+      whenSoldTableBody.innerHTML = '';
+
+      if (filteredEntries.length === 0) {
+        const emptyRow = document.createElement('tr');
+        const emptyCell = document.createElement('td');
+        emptyCell.colSpan = 7;
+        emptyCell.className = 'empty-state';
+        emptyCell.textContent = query
+          ? 'No hay registros en el historial que coincidan con el filtro.'
+          : 'No hay registros de cuándo se vendió en esta tabla.';
+        emptyRow.appendChild(emptyCell);
+        whenSoldTableBody.appendChild(emptyRow);
+        return;
+      }
+
+      filteredEntries.forEach(entry => {
+        const tr = document.createElement('tr');
+
+        const tdWhen = document.createElement('td');
+        tdWhen.style.fontWeight = '600';
+        tdWhen.textContent = entry.recordedAt || entry.date;
+
+        const tdCode = document.createElement('td');
+        const codeBadge = document.createElement('span');
+        codeBadge.className = 'code-tag';
+        codeBadge.textContent = entry.code;
+        tdCode.appendChild(codeBadge);
+
+        const tdName = document.createElement('td');
+        tdName.className = 'product-name-cell';
+        tdName.textContent = entry.name;
+
+        const tdQty = document.createElement('td');
+        tdQty.style.fontWeight = 'bold';
+        tdQty.textContent = entry.quantity;
+
+        const tdTotal = document.createElement('td');
+        tdTotal.style.fontWeight = 'bold';
+        tdTotal.textContent = formatCurrency(entry.totalRevenue);
+
+        const tdProfit = document.createElement('td');
+        tdProfit.style.fontWeight = 'bold';
+        tdProfit.className = entry.netProfit >= 0 ? 'profit-positive' : 'profit-negative';
+        tdProfit.textContent = formatCurrency(entry.netProfit);
+
+        const tdRemove = document.createElement('td');
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-delete';
+        removeBtn.textContent = 'Quitar';
+        removeBtn.title = 'Quitar registro de esta tabla sin reducir el total de ganancia';
+        removeBtn.addEventListener('click', () => removeWhenSoldEntry(entry.id));
+        tdRemove.appendChild(removeBtn);
+
+        tr.append(tdWhen, tdCode, tdName, tdQty, tdTotal, tdProfit, tdRemove);
+        whenSoldTableBody.appendChild(tr);
+      });
+    }
+
+    /**
+     * Quita un registro del historial "Cuándo se Vendió" conservando intacta
+     * la ganancia acumulada protegida (sin bajar el total de ganancia).
+     */
+    function removeWhenSoldEntry(saleId) {
+      const entry = sales.find(s => s.id === saleId);
+      if (!entry) return;
+
+      openConfirmModal(
+        `¿Quitar el registro de venta del ${entry.recordedAt || entry.date} (${entry.quantity}x ${entry.name})? El total de ganancia acumulada se mantendrá sin bajar.`,
+        () => {
+          // Asegurar que la ganancia acumulada actual quede fijada como piso antes de quitar el registro
+          const currentProfitSum = sales.reduce((acc, s) => acc + s.netProfit, 0);
+          protectedProfitFloor = Math.max(protectedProfitFloor, currentProfitSum);
+
+          sales = sales.filter(s => s.id !== saleId);
+          saveSales();
+          renderMonthlyStats();
+          showToast(
+            `Registro quitado de la tabla. Ganancia total preservada en ${formatCurrency(protectedProfitFloor)}.`
+          );
+        }
+      );
+    }
+
+    if (whenSoldSearchInput) {
+      whenSoldSearchInput.addEventListener('input', renderWhenSoldHistoryTable);
+    }
+
+    statsYearSelect.addEventListener('change', renderMonthlyStats);
+    statsMonthSelect.addEventListener('change', renderMonthlyStats);
+
+    /**
+     * Limpia el formulario y vuelve al modo de creación
+     */
+    function resetFormState() {
+      productForm.reset();
+      productIdInput.value = '';
+      submitBtn.textContent = 'Guardar producto';
+      cancelEditBtn.style.display = 'none';
+      clearFormError();
+    }
+
+    productCodeInput.addEventListener('input', clearFormError);
+
+    /**
+     * Guarda un producto nuevo o actualiza uno existente validando que el código no se repita
+     */
+    productForm.addEventListener('submit', e => {
+      e.preventDefault();
+      clearFormError();
+
+      const code = productCodeInput.value.trim().toUpperCase();
+      const name = productNameInput.value.trim();
+      const quantity = parseInt(productQuantityInput.value, 10);
+      const costPrice = parseFloat(productCostInput.value);
+      const salePrice = parseFloat(productSaleInput.value);
+
+      if (
+        !code ||
+        !name ||
+        isNaN(quantity) || quantity < 0 ||
+        isNaN(costPrice) || costPrice < 0 ||
+        isNaN(salePrice) || salePrice < 0
+      ) {
+        return;
+      }
+
+      const editingId = productIdInput.value === '' ? null : Number(productIdInput.value);
+
+      // Validar que no exista otro producto con el mismo código
+      const duplicateProduct = products.find(
+        p => p.code.toUpperCase() === code && p.id !== editingId
+      );
+
+      if (duplicateProduct) {
+        showFormError(
+          `El código "${code}" ya está asignado al producto "${duplicateProduct.name}". Usa un código diferente.`
+        );
+        productCodeInput.focus();
+        return;
+      }
+
+      if (editingId === null) {
+        products.push({
+          id: Date.now(),
+          code,
+          name,
+          quantity,
+          costPrice,
+          salePrice
+        });
+      } else {
+        const index = products.findIndex(p => p.id === editingId);
+        if (index !== -1) {
+          products[index] = {
+            id: editingId,
+            code,
+            name,
+            quantity,
+            costPrice,
+            salePrice
+          };
+        }
+      }
+
+      resetFormState();
+      saveProducts();
+      renderTable(searchInput.value);
+    });
+
+    /**
+     * Carga un producto en el formulario para editarlo
+     */
+    function startEditProduct(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      clearFormError();
+      productIdInput.value = product.id;
+      productCodeInput.value = product.code;
+      productNameInput.value = product.name;
+      productQuantityInput.value = product.quantity;
+      productCostInput.value = product.costPrice;
+      productSaleInput.value = product.salePrice;
+
+      submitBtn.textContent = 'Actualizar producto';
+      cancelEditBtn.style.display = 'inline-block';
+      productCodeInput.focus();
+    }
+
+    cancelEditBtn.addEventListener('click', resetFormState);
+
+    /**
+     * Abre el cuadro de confirmación personalizado
+     */
+    function openConfirmModal(message, onConfirm, showRestoreStockOption = false) {
+      confirmMessage.textContent = message;
+      confirmActionCallback = onConfirm;
+      if (showRestoreStockOption) {
+        restoreStockCheckbox.checked = true;
+        confirmExtraOption.style.display = 'block';
+      } else {
+        confirmExtraOption.style.display = 'none';
+      }
+      confirmModal.classList.add('active');
+    }
+
+    function closeConfirmModal() {
+      confirmActionCallback = null;
+      confirmExtraOption.style.display = 'none';
+      confirmModal.classList.remove('active');
+    }
+
+    confirmYesBtn.addEventListener('click', () => {
+      if (typeof confirmActionCallback === 'function') {
+        confirmActionCallback(restoreStockCheckbox.checked);
+      }
+      closeConfirmModal();
+    });
+
+    confirmNoBtn.addEventListener('click', closeConfirmModal);
+    confirmModal.addEventListener('click', e => {
+      if (e.target === confirmModal) closeConfirmModal();
+    });
+
+    /**
+     * Solicita confirmación para eliminar un producto por su ID único
+     */
+    function requestDeleteProduct(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      openConfirmModal(`¿Seguro que deseas eliminar "${product.code} - ${product.name}"?`, () => {
+        if (Number(productIdInput.value) === id) {
+          resetFormState();
+        }
+        products = products.filter(p => p.id !== id);
+        saveProducts();
+        renderTable(searchInput.value);
+      });
+    }
+
+    /**
+     * Solicita confirmación para anular un registro de venta (con opción de devolver stock)
+     */
+    function requestDeleteSale(saleId) {
+      const sale = sales.find(s => s.id === saleId);
+      if (!sale) return;
+
+      openConfirmModal(
+        `¿Deseas anular la venta del ${sale.date} (${sale.quantity}x ${sale.name})?`,
+        shouldRestoreStock => {
+          if (shouldRestoreStock) {
+            const prodIdx = products.findIndex(
+              p => p.code.toUpperCase() === sale.code.toUpperCase()
+            );
+            if (prodIdx !== -1) {
+              products[prodIdx].quantity += sale.quantity;
+              saveProducts();
+            }
+          }
+
+          sales = sales.filter(s => s.id !== saleId);
+          saveSales();
+          renderTable(searchInput.value);
+          renderMonthlyStats();
+          showToast(
+            shouldRestoreStock
+              ? `Venta anulada y ${sale.quantity} unidad(es) devueltas al inventario.`
+              : 'Registro de venta eliminado del historial.'
+          );
+        },
+        true
+      );
+    }
+
+    /**
+     * Permite restaurar los productos de ejemplo iniciales
+     */
+    resetDataBtn.addEventListener('click', () => {
+      openConfirmModal(
+        '¿Deseas restaurar el inventario con los productos de ejemplo? Se reemplazarán los productos actuales.',
+        () => {
+          products = DEFAULT_PRODUCTS.map(item => ({ ...item }));
+          resetFormState();
+          searchInput.value = '';
+          setStockFilter('all');
+          saveProducts();
+          renderTable();
+          showToast('Inventario de ejemplo restaurado.');
+        }
+      );
+    });
+
+    /**
+     * Permite restaurar las ventas de ejemplo mensuales
+     */
+    resetSalesBtn.addEventListener('click', () => {
+      openConfirmModal(
+        '¿Deseas restaurar las ventas de ejemplo (Agosto - Noviembre 2026)?',
+        () => {
+          sales = DEFAULT_SALES.map(item => ({ ...item }));
+          saveSales();
+          populateYearOptions();
+          statsYearSelect.value = '2026';
+          statsMonthSelect.value = 'all';
+          renderMonthlyStats();
+          showToast('Historial de ventas de ejemplo restaurado.');
+        }
+      );
+    });
+
+    /**
+     * Permite vaciar todo el historial de ventas para empezar desde cero
+     */
+    clearSalesBtn.addEventListener('click', () => {
+      openConfirmModal(
+        '¿Seguro que deseas vaciar todo el historial de ventas para empezar desde cero?',
+        () => {
+          const currentProfitSum = sales.reduce((acc, s) => acc + s.netProfit, 0);
+          protectedProfitFloor = Math.max(protectedProfitFloor, currentProfitSum);
+
+          sales = [];
+          saveSales();
+          renderMonthlyStats();
+          showToast('Historial de ventas vaciado (ganancia total acumulada preservada).');
+        }
+      );
+    });
+
+    // Eventos de filtros y búsqueda en tiempo real
+    filterAllBtn.addEventListener('click', () => setStockFilter('all'));
+    filterLowBtn.addEventListener('click', () => setStockFilter('low'));
+    lowStockSummaryCard.addEventListener('click', () => {
+      setStockFilter(activeStockFilter === 'low' ? 'all' : 'low');
+    });
+
+    searchInput.addEventListener('input', () => {
+      renderTable(searchInput.value);
+    });
+
+    // ==================== EXPORTACIÓN EXCEL (CSV) Y RESPALDO (JSON) ====================
+
+    /**
+     * Dispara la descarga de un archivo en el navegador mediante Blob
+     */
+    function triggerFileDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /**
+     * Escapa valores para celdas CSV limpias
+     */
+    function escapeCsvCell(value) {
+      const str = String(value ?? '');
+      if (str.includes(';') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+
+    /**
+     * Exporta todo el inventario actual a un archivo .csv compatible con Excel (UTF-8 con BOM y separador ;)
+     */
+    function exportInventoryToCSV() {
+      if (products.length === 0) {
+        showToast('No hay productos en el inventario para exportar.');
+        return;
+      }
+
+      const headers = [
+        'Código',
+        'Producto',
+        'Stock Actual',
+        'Estado',
+        'Costo Unitario',
+        'Precio Venta',
+        'Ganancia Unitaria',
+        'Ganancia Total Estimada'
+      ];
+
+      const rows = products.map(p => {
+        const statusLabel =
+          p.quantity === 0
+            ? 'Agotado'
+            : p.quantity < LOW_STOCK_THRESHOLD
+            ? 'Faltante'
+            : 'Disponible';
+        const unitProfit = Number((p.salePrice - p.costPrice).toFixed(2));
+        const totalProfit = Number((unitProfit * p.quantity).toFixed(2));
+
+        return [
+          p.code,
+          p.name,
+          p.quantity,
+          statusLabel,
+          p.costPrice.toFixed(2),
+          p.salePrice.toFixed(2),
+          unitProfit.toFixed(2),
+          totalProfit.toFixed(2)
+        ]
+          .map(escapeCsvCell)
+          .join(';');
+      });
+
+      const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const filename = `inventario_${getTodayISO()}.csv`;
+
+      triggerFileDownload(blob, filename);
+      showToast(`Inventario exportado (${products.length} productos) → ${filename}`);
+    }
+
+    /**
+     * Exporta todo el historial de ventas a un archivo .csv compatible con Excel
+     */
+    function exportSalesToCSV() {
+      if (sales.length === 0) {
+        showToast('No hay ventas registradas para exportar.');
+        return;
+      }
+
+      const headers = [
+        'Fecha',
+        'Mes',
+        'Código',
+        'Producto',
+        'Cantidad',
+        'Total Vendido',
+        'Ganancia Neta'
+      ];
+
+      const sortedSales = [...sales].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+      const rows = sortedSales.map(s => {
+        let monthLabel = s.date.slice(0, 7);
+        const mIdx = parseInt(s.date.slice(5, 7), 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) {
+          monthLabel = `${MONTH_NAMES[mIdx]} ${s.date.slice(0, 4)}`;
+        }
+
+        return [
+          s.date,
+          monthLabel,
+          s.code,
+          s.name,
+          s.quantity,
+          s.totalRevenue.toFixed(2),
+          s.netProfit.toFixed(2)
+        ]
+          .map(escapeCsvCell)
+          .join(';');
+      });
+
+      const csvContent = '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const filename = `ventas_${getTodayISO()}.csv`;
+
+      triggerFileDownload(blob, filename);
+      showToast(`Historial de ventas exportado (${sales.length} registros) → ${filename}`);
+    }
+
+    /**
+     * Descarga un respaldo completo (.json) con productos, ventas y metadatos
+     */
+    function downloadFullBackupJSON() {
+      const backupPayload = {
+        app: 'Inventario y Ganancias',
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        productsCount: products.length,
+        salesCount: sales.length,
+        products,
+        sales
+      };
+
+      const jsonString = JSON.stringify(backupPayload, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+      const filename = `respaldo_inventario_${getTodayISO()}.json`;
+
+      triggerFileDownload(blob, filename);
+      showToast(
+        `Respaldo descargado (${products.length} productos y ${sales.length} ventas) → ${filename}`
+      );
+    }
+
+    /**
+     * Valida y normaliza un objeto de respaldo JSON antes de restaurarlo
+     */
+    function parseAndValidateBackup(rawText) {
+      const parsed = JSON.parse(rawText);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('El archivo no contiene un objeto JSON válido.');
+      }
+      if (!Array.isArray(parsed.products) || !Array.isArray(parsed.sales)) {
+        throw new Error('El respaldo debe contener las listas "products" y "sales".');
+      }
+
+      const normalizedProducts = parsed.products.map((item, idx) => {
+        if (!item || typeof item !== 'object' || !item.name) {
+          throw new Error(`Producto inválido en la posición #${idx + 1}.`);
+        }
+        return {
+          id: Number(item.id) || Date.now() + idx,
+          code: String(item.code || `COD-${String(idx + 1).padStart(3, '0')}`)
+            .trim()
+            .toUpperCase(),
+          name: String(item.name).trim(),
+          quantity: Math.max(0, parseInt(item.quantity, 10) || 0),
+          costPrice: Math.max(0, Number(item.costPrice) || 0),
+          salePrice: Math.max(0, Number(item.salePrice) || 0)
+        };
+      });
+
+      const normalizedSales = parsed.sales.map((s, idx) => {
+        if (!s || typeof s !== 'object' || !s.date) {
+          throw new Error(`Registro de venta inválido en la posición #${idx + 1}.`);
+        }
+        const qty = Math.max(1, parseInt(s.quantity, 10) || 1);
+        const cost = Math.max(0, Number(s.costPrice) || 0);
+        const sale = Math.max(0, Number(s.salePrice) || 0);
+        const dateStr = String(s.date).slice(0, 10);
+        return {
+          id: Number(s.id) || Date.now() + 10000 + idx,
+          date: dateStr,
+          recordedAt: String(s.recordedAt || `${dateStr} 12:00`),
+          code: String(s.code || 'SIN-COD').trim().toUpperCase(),
+          name: String(s.name || 'Producto').trim(),
+          quantity: qty,
+          costPrice: cost,
+          salePrice: sale,
+          totalRevenue: Number(s.totalRevenue ?? (sale * qty).toFixed(2)),
+          netProfit: Number(s.netProfit ?? ((sale - cost) * qty).toFixed(2))
+        };
+      });
+
+      return {
+        products: normalizedProducts,
+        sales: normalizedSales
+      };
+    }
+
+    exportInvCsvBtn.addEventListener('click', exportInventoryToCSV);
+    exportSalesCsvBtn.addEventListener('click', exportSalesToCSV);
+    exportJsonBtn.addEventListener('click', downloadFullBackupJSON);
+
+    importJsonBtn.addEventListener('click', () => {
+      importJsonFileInput.value = '';
+      importJsonFileInput.click();
+    });
+
+    importJsonFileInput.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          const validated = parseAndValidateBackup(event.target.result);
+          const prodCount = validated.products.length;
+          const salesCount = validated.sales.length;
+
+          openConfirmModal(
+            `Se encontraron ${prodCount} producto(s) y ${salesCount} venta(s) en "${file.name}". ¿Deseas reemplazar tus datos actuales con este respaldo?`,
+            () => {
+              products = validated.products;
+              sales = validated.sales;
+              const importedProfitSum = sales.reduce((acc, s) => acc + s.netProfit, 0);
+              protectedProfitFloor = Math.max(protectedProfitFloor, importedProfitSum);
+              saveProducts();
+              saveSales();
+              resetFormState();
+              searchInput.value = '';
+              setStockFilter('all');
+              populateYearOptions();
+              renderTable();
+              renderMonthlyStats();
+              showToast(
+                `Respaldo restaurado con éxito: ${prodCount} producto(s) y ${salesCount} venta(s) cargados.`
+              );
+            }
+          );
+        } catch (err) {
+          showToast(`Error al leer respaldo: ${err.message}`);
+        }
+      };
+
+      reader.onerror = () => {
+        showToast('No se pudo leer el archivo seleccionado.');
+      };
+
+      reader.readAsText(file, 'UTF-8');
+    });
+
+    // Arranque: esperar la sesión de Supabase y reaccionar a login / logout
+    sb.auth.onAuthStateChange((event, session) => {
+      // Se difiere con setTimeout para no hacer llamadas a Supabase dentro del callback de auth
+      setTimeout(() => {
+        if (session && session.user) {
+          startAppForUser(session.user);
+        } else {
+          showLoggedOut();
+        }
+      }, 0);
+    });
+  </script>
+</body>
+</html>
