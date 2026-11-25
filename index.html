@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4CAF50" />
   <title>Inventario y Ganancias</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <style>
@@ -1278,6 +1279,510 @@
       font-style: italic;
       padding: 18px;
     }
+
+    /* ==================== OPTIMIZACIÓN PARA TELÉFONOS ==================== */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button,
+    select,
+    input {
+      touch-action: manipulation;
+    }
+
+    .backup-details > summary {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        margin: 0;
+        padding-bottom: calc(84px + env(safe-area-inset-bottom));
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+
+      .container {
+        padding: 12px 12px 8px;
+        border-radius: 0;
+        box-shadow: none;
+        background: #f0f0f5;
+      }
+
+      h1 {
+        font-size: 20px;
+        margin-bottom: 10px;
+      }
+
+      /* Evita el zoom automático de iOS al enfocar campos */
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
+
+      /* Navegación fija abajo, estilo app */
+      .main-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 900;
+        margin: 0;
+        gap: 6px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+        background: #ffffff;
+        border-top: 1px solid #e5e7eb;
+        border-bottom: none;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+        flex-wrap: nowrap;
+        justify-content: stretch;
+      }
+
+      .main-nav-btn {
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding: 8px 4px;
+        font-size: 12.5px;
+        line-height: 1.2;
+        text-align: center;
+        min-height: 54px;
+      }
+
+      .nav-long {
+        display: none;
+      }
+
+      .nav-pill {
+        font-size: 11px;
+        padding: 1px 7px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Notificación flotante arriba */
+      .toast-banner {
+        position: fixed;
+        top: calc(10px + env(safe-area-inset-top));
+        left: 10px;
+        right: 10px;
+        z-index: 1500;
+        margin: 0;
+        font-size: 13.5px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      }
+
+      .user-bar {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 6px 10px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+
+      #userEmailLabel {
+        flex: 1 1 100%;
+        order: 3;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .btn-reset-data {
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+
+      /* Respaldo plegable */
+      .backup-details {
+        margin-bottom: 14px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+      }
+
+      .backup-details > summary {
+        display: block;
+        padding: 12px 14px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #475569;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .backup-details > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .backup-details > summary::after {
+        content: '▾';
+        float: right;
+      }
+
+      .backup-details[open] > summary::after {
+        content: '▴';
+      }
+
+      .backup-toolbar {
+        margin: 0;
+        border: none;
+        border-top: 1px solid #e2e8f0;
+        border-radius: 0 0 8px 8px;
+        flex-direction: column;
+        align-items: stretch;
+        background: #ffffff;
+      }
+
+      .backup-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-tool {
+        justify-content: center;
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      /* Tarjetas de resumen compactas en 2 columnas */
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .summary-card {
+        padding: 12px 8px;
+      }
+
+      .summary-card .card-label {
+        font-size: 10.5px;
+      }
+
+      .summary-card .card-value {
+        font-size: 16px;
+        word-break: break-word;
+      }
+
+      .summary-card .card-sub {
+        font-size: 10.5px;
+      }
+
+      /* Buscador y filtros */
+      .toolbar-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      #search {
+        min-width: 0;
+        width: 100%;
+        padding: 12px;
+      }
+
+      .filter-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .filter-tab-btn {
+        justify-content: center;
+        padding: 12px 8px;
+        font-size: 12.5px;
+        text-align: center;
+      }
+
+      /* Formulario de producto */
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .form-grid > input:nth-child(1),
+      .form-grid > input:nth-child(2) {
+        grid-column: 1 / -1;
+      }
+
+      form input,
+      .sell-field input {
+        padding: 12px;
+      }
+
+      .form-buttons {
+        flex-direction: column;
+      }
+
+      .form-buttons button {
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .btn-cancel {
+        min-width: 0;
+      }
+
+      /* Barras de herramientas de Ventas y Estadísticas */
+      .sales-toolbar,
+      .stats-controls-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+      }
+
+      .sales-filters,
+      .stats-filter-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .sales-search-input,
+      .when-sold-search {
+        min-width: 0;
+        width: 100%;
+        padding: 12px;
+      }
+
+      .stats-select {
+        width: 100%;
+        padding: 12px;
+      }
+
+      .btn-add-sale {
+        justify-content: center;
+        padding: 14px;
+        font-size: 16px;
+      }
+
+      /* ---------- Tablas convertidas en tarjetas ---------- */
+      .table-wrapper {
+        margin-top: 12px;
+      }
+
+      table.cards-mobile {
+        min-width: 0;
+        display: block;
+        border: none;
+      }
+
+      table.cards-mobile thead {
+        display: none;
+      }
+
+      table.cards-mobile tbody {
+        display: block;
+      }
+
+      table.cards-mobile tr {
+        display: block;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        background: #ffffff !important;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      table.cards-mobile tr.row-out-stock {
+        border-left: 5px solid #ef5350;
+      }
+
+      table.cards-mobile tr.row-low-stock {
+        border-left: 5px solid #ffa726;
+      }
+
+      table.cards-mobile td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        border: none;
+        border-bottom: 1px dashed #eceff1;
+        padding: 8px 0;
+        font-size: 14px;
+        text-align: right;
+      }
+
+      table.cards-mobile td:last-child {
+        border-bottom: none;
+      }
+
+      table.cards-mobile td[data-label]::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: 12px;
+        font-weight: bold;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        text-align: left;
+      }
+
+      /* El nombre del producto hace de título de la tarjeta */
+      table.cards-mobile td.product-name-cell {
+        display: block;
+        text-align: left;
+        font-size: 16px;
+        font-weight: bold;
+        padding-top: 4px;
+      }
+
+      table.cards-mobile td.product-name-cell::before {
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      table.cards-mobile td.empty-state {
+        display: block;
+        text-align: center;
+        border: none;
+      }
+
+      table.cards-mobile td.empty-state::before {
+        display: none;
+      }
+
+      /* Acciones en fila, botones grandes */
+      table.cards-mobile td.actions-cell {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: stretch;
+        gap: 8px;
+        padding-top: 12px;
+      }
+
+      table.cards-mobile td.actions-cell::before {
+        display: none;
+      }
+
+      table.cards-mobile td.actions-cell .btn {
+        flex: 1 1 0;
+        min-width: 80px;
+        margin: 0;
+        padding: 12px 8px;
+        font-size: 14px;
+        border-radius: 8px;
+      }
+
+      /* Controles +/- de cantidad más grandes */
+      .qty-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        border-radius: 8px;
+      }
+
+      .qty-control {
+        gap: 12px;
+      }
+
+      .qty-value {
+        min-width: 30px;
+        font-size: 16px;
+      }
+
+      /* Tabla mensual: se mantiene como tabla con scroll horizontal */
+      table:not(.cards-mobile) {
+        min-width: 620px;
+      }
+
+      /* Gráfico */
+      .chart-card {
+        padding: 12px;
+      }
+
+      .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .chart-tooltip-box {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .month-detail-panel,
+      .when-sold-panel {
+        padding: 12px;
+      }
+
+      .when-sold-note {
+        font-size: 11px;
+      }
+
+      /* Ventanas emergentes como hoja inferior */
+      .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+
+      .modal-box,
+      .sell-modal-box {
+        max-width: none;
+        max-height: 92vh;
+        overflow-y: auto;
+        border-radius: 16px 16px 0 0;
+        padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+      }
+
+      .modal-actions {
+        flex-direction: column-reverse;
+      }
+
+      .modal-actions .btn {
+        width: 100%;
+        margin: 0;
+        padding: 14px !important;
+        font-size: 15px;
+      }
+
+      .sell-preview-totals {
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      #confirmExtraOption label {
+        font-size: 14px;
+        padding: 6px 0;
+      }
+
+      /* Pantalla de acceso */
+      .auth-overlay {
+        align-items: flex-start;
+        padding-top: 12vh;
+      }
+
+      .auth-box {
+        padding: 24px 18px;
+      }
+
+      .auth-box input {
+        padding: 13px;
+      }
+
+      .auth-primary {
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .footer-tools {
+        justify-content: stretch;
+      }
+
+      .footer-tools .btn-reset-data {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1313,11 +1818,13 @@
         Ventas <span class="nav-pill" id="navSalesCount">0</span>
       </button>
       <button type="button" id="navStatsBtn" class="main-nav-btn" role="tab" aria-selected="false">
-        Estadísticas por Mes <span class="nav-pill" id="navSalesProfitBadge">RD$0.00</span>
+        Estadísticas<span class="nav-long"> por Mes</span> <span class="nav-pill" id="navSalesProfitBadge">RD$0.00</span>
       </button>
     </div>
 
     <!-- Módulo de Exportación a Excel (CSV) y Respaldo Completo (JSON) -->
+    <details class="backup-details" id="backupDetails" open>
+    <summary>Exportar y respaldo</summary>
     <div class="backup-toolbar" aria-label="Herramientas de exportación y respaldo">
       <div class="backup-group">
         <span class="backup-group-label">Excel / CSV:</span>
@@ -1339,6 +1846,7 @@
         <input type="file" id="importJsonFileInput" accept=".json,application/json" style="display: none;" />
       </div>
     </div>
+    </details>
 
     <!-- Notificación visual temporal -->
     <div id="toastBanner" class="toast-banner" role="status"></div>
@@ -4052,6 +4560,41 @@
 
       reader.readAsText(file, 'UTF-8');
     });
+
+    // ==================== AYUDAS PARA TELÉFONO ====================
+    // Convierte cada fila de las tablas principales en tarjeta: copia el título de cada
+    // columna a un atributo data-label que el CSS muestra en pantallas pequeñas.
+    (function setupMobileCards() {
+      const tableBodyIds = ['productTableBody', 'salesMainTableBody', 'salesDetailBody', 'whenSoldTableBody'];
+      tableBodyIds.forEach(id => {
+        const tbody = document.getElementById(id);
+        if (!tbody) return;
+        const table = tbody.closest('table');
+        table.classList.add('cards-mobile');
+        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+        const labelRows = () => {
+          tbody.querySelectorAll('tr').forEach(tr => {
+            const cells = Array.from(tr.children);
+            cells.forEach((td, i) => {
+              if (td.colSpan > 1 || td.dataset.label !== undefined) return;
+              td.dataset.label = headers[i] || '';
+              if (/^(Acciones|Acción|Quitar Registro)$/i.test(headers[i] || '')) {
+                td.classList.add('actions-cell');
+                td.removeAttribute('data-label');
+                td.dataset.label = '';
+              }
+            });
+          });
+        };
+        new MutationObserver(labelRows).observe(tbody, { childList: true });
+        labelRows();
+      });
+
+      const backupDetails = document.getElementById('backupDetails');
+      if (backupDetails && window.matchMedia('(max-width: 640px)').matches) {
+        backupDetails.removeAttribute('open');
+      }
+    })();
 
     // Arranque: esperar la sesión de Supabase y reaccionar a login / logout
     sb.auth.onAuthStateChange((event, session) => {
